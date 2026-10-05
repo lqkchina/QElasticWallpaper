@@ -138,7 +138,7 @@ namespace QElasticWallpaper.Core
             // 皮肤被拉伸的高光边缘（更亮、更薄），让"真人皮肤"感更真实
             if (highlight > 0.01)
             {
-                var hp = new Pen(WithAlpha(bright, alpha * highlight * globalOpacity), 2);
+                var hp = new Pen(new SolidColorBrush(WithAlpha(bright, alpha * highlight * globalOpacity)), 2);
                 hp.Freeze();
                 dc.DrawEllipse(null, hp, center, pressR * 0.98, pressR * 0.98);
             }
@@ -176,7 +176,7 @@ namespace QElasticWallpaper.Core
                 double alpha = e.Intensity * (1 - t) * 0.55 * globalOpacity;
                 double th = Math.Max(1, e.RingThickness * (1 - 0.5 * t));
 
-                var pen = new Pen(WithAlpha(baseColor, alpha), th);
+                var pen = new Pen(new SolidColorBrush(WithAlpha(baseColor, alpha)), th);
                 pen.StartLineCap = PenLineCap.Round;
                 pen.EndLineCap = PenLineCap.Round;
                 pen.Freeze();
@@ -185,7 +185,7 @@ namespace QElasticWallpaper.Core
                 // 边缘柔化：再叠一圈更淡更宽的晕
                 if (edgeSoft > 0.02)
                 {
-                    var soft = new Pen(WithAlpha(baseColor, alpha * 0.35), th * (2 + 3 * edgeSoft));
+                    var soft = new Pen(new SolidColorBrush(WithAlpha(baseColor, alpha * 0.35)), th * (2 + 3 * edgeSoft));
                     soft.Freeze();
                     dc.DrawEllipse(null, soft, center, rt, rt);
                 }

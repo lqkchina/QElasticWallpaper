@@ -58,10 +58,12 @@ namespace QElasticWallpaper.Core
             var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
             if (hwnd == IntPtr.Zero) return;
 
-            // 缓存本窗口 DPI，供 PhysicalToDip 从任意线程安全调用
-            var dpi = VisualTreeHelper.GetDpi(this);
-            _dpiX = dpi.PixelsPerDipX > 0 ? dpi.PixelsPerDipX : 1.0;
-            _dpiY = dpi.PixelsPerDipY > 0 ? dpi.PixelsPerDipY : 1.0;
+            // 缓存本窗口 DPI，供 PhysicalToDip 从任意线程安全调用。
+            // PixelsPerDip = 窗口DPI / 96；取不到时按 96（100% 缩放）处理。
+            uint winDpi = Native.GetDpiForWindow(hwnd);
+            if (winDpi == 0) winDpi = 96;
+            _dpiX = winDpi / 96.0;
+            _dpiY = winDpi / 96.0;
 
             if (_embedBelowIcons)
             {

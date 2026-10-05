@@ -82,6 +82,10 @@ namespace QElasticWallpaper.Core
         [DllImport("user32.dll")]
         public static extern bool GetCursorPos(out POINT pt);
 
+        // 取指定窗口的 DPI（Win10 1607+）。用于把物理像素换算成 WPF 的 DIP。
+        [DllImport("user32.dll")]
+        public static extern uint GetDpiForWindow(IntPtr hwnd);
+
         // ---------- 消息循环（低层钩子所在线程必须跑一个消息循环才能收到回调） ----------
         [StructLayout(LayoutKind.Sequential)]
         public struct MSG

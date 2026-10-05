@@ -57,7 +57,7 @@ namespace QElasticWallpaper.Core
                 }
             };
             presetRow.Children.Add(_presetBox);
-            DockPanel.SetDock(presetRow, DockPanel.Dock.Top);
+            DockPanel.SetDock(presetRow, Dock.Top);
             top.Children.Add(presetRow);
 
             var btnRow = new StackPanel
@@ -83,12 +83,12 @@ namespace QElasticWallpaper.Core
 
             // ---------- 中部：可滚动参数列表 ----------
             var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-            DockPanel.SetDock(scroll, DockPanel.Dock.Top);
+            DockPanel.SetDock(scroll, Dock.Top);
 
             _panel = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
             scroll.Content = _panel;
 
-            DockPanel.SetDock(top, DockPanel.Dock.Top);
+            DockPanel.SetDock(top, Dock.Top);
             root.Children.Add(top);
             root.Children.Add(scroll);
 
@@ -164,7 +164,7 @@ namespace QElasticWallpaper.Core
                         cb.Checked += (s, e) => { p.BoolValue = true; NotifyChanged(p); };
                         cb.Unchecked += (s, e) => { p.BoolValue = false; NotifyChanged(p); };
                         panel.Children.Add(cb);
-                        DockPanel.SetDock(cb, DockPanel.Dock.Right);
+                        DockPanel.SetDock(cb, Dock.Right);
                         break;
                     }
                 case ParamKind.Enum:
@@ -186,7 +186,7 @@ namespace QElasticWallpaper.Core
                             }
                         };
                         panel.Children.Add(combo);
-                        DockPanel.SetDock(combo, DockPanel.Dock.Right);
+                        DockPanel.SetDock(combo, Dock.Right);
                         break;
                     }
                 case ParamKind.Slider:
@@ -216,9 +216,9 @@ namespace QElasticWallpaper.Core
                             NotifyChanged(p);
                         };
                         panel.Children.Add(valText);
-                        DockPanel.SetDock(valText, DockPanel.Dock.Right);
+                        DockPanel.SetDock(valText, Dock.Right);
                         panel.Children.Add(slider);
-                        DockPanel.SetDock(slider, DockPanel.Dock.Right);
+                        DockPanel.SetDock(slider, Dock.Right);
                         break;
                     }
             }
