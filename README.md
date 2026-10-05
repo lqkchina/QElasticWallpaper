@@ -65,6 +65,17 @@ git push -u origin master
 
 在 GitHub 的 **Releases** 页面新建 Release，把 `publish\QElasticWallpaper.exe` 上传即可让别人下载。
 
+### 4. 自动打包 EXE（推荐，不用自己开电脑编译）
+
+项目里已带 `.github/workflows/build-exe.yml`（GitHub Actions 工作流）。只要包含 `.github` 文件夹一起推上去，**以后上传源码就自动出 EXE**，你再也不用在 Windows 上手动 `dotnet build`：
+
+- **每次 push** → 后台自动在 `windows-latest` 上编译，出 `QElasticWallpaper.exe`，可在 Actions 页面的「Artifacts」里下载。
+- **打 tag**（`git tag v1.0.0 && git push --tags`）→ 自动生成 GitHub **Release**，并把 EXE 挂上去，别人可直接下载。
+
+> 注意：`git add .` 时务必把 `.github/` 目录一起提交（`.gitignore` 不会忽略它）。仓库首次启用 Actions 通常立即生效，无需额外设置。
+
+如果不想要自动构建，也可以忽略该工作流，纯按第 3 步手动出 EXE。
+
 ---
 
 ## 全部可调参数
