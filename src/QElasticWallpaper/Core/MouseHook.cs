@@ -39,26 +39,36 @@ namespace QElasticWallpaper.Core
 
         void HookLoop()
         {
-            _proc = HookCallback;
-            using (var module = System.Diagnostics.Process.GetCurrentProcess().MainModule)
+            try
             {
-                IntPtr hMod = Native.GetModuleHandle(module?.ModuleName);
-                _hook = Native.SetWindowsHookEx(Native.WH_MOUSE_LL, _proc, hMod, 0);
-            }
+                _proc = HookCallback;
+                using (var module = System.Diagnostics.Process.GetCurrentProcess().MainModule)
+                {
+                    IntPtr hMod = Native.GetModuleHandle(module?.ModuleName);
+                    _hook = Native.SetWindowsHookEx(Native.WH_MOUSE_LL, _proc, hMod, 0);
+                }
 
-            var msg = new Native.MSG();
-            while (_running && _hook != IntPtr.Zero)
-            {
-                int r = Native.GetMessage(out msg, IntPtr.Zero, 0, 0);
-                if (r <= 0) break;
-                Native.TranslateMessage(ref msg);
-                Native.DispatchMessage(ref msg);
+                var msg = new Native.MSG();
+                while (_running && _hook != IntPtr.Zero)
+                {
+                    int r = Native.GetMessage(out msg, IntPtr.Zero, 0, 0);
+                    if (r <= 0) break;
+                    Native.TranslateMessage(ref msg);
+                    Native.DispatchMessage(ref msg);
+                }
             }
-
-            if (_hook != IntPtr.Zero)
+            catch (Exception ex)
             {
-                Native.UnhookWindowsHookEx(_hook);
-                _hook = IntPtr.Zero;
+                // 钩子线程出错绝不能拖垮主程序：记录日志，静默降级（效果层仍在，只是点击不触发）
+                ErrorLog.Write(ex);
+            }
+            finally
+            {
+                if (_hook != IntPtr.Zero)
+                {
+                    Native.UnhookWindowsHookEx(_hook);
+                    _hook = IntPtr.Zero;
+                }
             }
         }
 
