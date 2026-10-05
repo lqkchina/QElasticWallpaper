@@ -1,32 +1,62 @@
 name: 自动打包 EXE
+
+# 触发条件：
+#   - 每次 push 到 main 分支（自动出 EXE，作为 Actions 产物可下载）
+#   - 每次打 tag（如 v1.0.0），自动生成 GitHub Release 并把 EXE 挂上去
+# 版本号来源：src/QElasticWallpaper/QElasticWallpaper.csproj 里的 <Version>xxx</Version>
+# 每次修复后改版本号，打出的 EXE 文件名会带上版本号，方便区分和回滚。
 on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
-  workflow_dispatch: {}
+  workflow_dispatch: {}   # 也支持在 Actions 页面手动触发
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+
       - name: 安装 .NET 7 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '7.0.x'
-      - name: 发布单文件 EXE
+
+      # 从 csproj 读取版本号，供后续命名 EXE 使用
+      - name: 读取版本号
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path "src/QElasticWallpaper/QElasticWallpaper.csproj" `
+                -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
+          echo "ver=$v" >> $env:GITHUB_OUTPUT
+
+      - name: 发布单文件 EXE（自包含，无需装 .NET）
         run: |
           dotnet publish "src/QElasticWallpaper/QElasticWallpaper.csproj" `
             -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true -o publish
-      - name: 上传 EXE 为产物
+
+      # 把 EXE 重命名为带版本号的文件名，便于下载后区分
+      - name: 命名版本化 EXE
+        shell: pwsh
+        run: |
+          Copy-Item "publish/QElasticWallpaper.exe" `
+                    "publish/QElasticWallpaper-${{ steps.ver.outputs.ver }}.exe"
+
+      - name: 上传 EXE 为 Actions 产物
         uses: actions/upload-artifact@v4
         with:
-          name: QElasticWallpaper-win-x64
-          path: publish/QElasticWallpaper.exe
-      - name: 打 tag 时生成 Release
+          name: QElasticWallpaper-${{ steps.ver.outputs.ver }}-win-x64
+          path: |
+            publish/QElasticWallpaper.exe
+            publish/QElasticWallpaper-${{ steps.ver.outputs.ver }}.exe
+
+      # 只有打了 tag（v1.0.0 之类）才创建 GitHub Release
+      - name: 创建 GitHub Release 并挂载 EXE
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: publish/QElasticWallpaper.exe
+          files: publish/QElasticWallpaper-${{ steps.ver.outputs.ver }}.exe
           generate_release_notes: true
