@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -262,9 +260,9 @@ namespace QElasticWallpaper.Core
                 int y = (int)SystemParameters.VirtualScreenTop;
                 if (w <= 0 || h <= 0) return;
 
-                using (var bmp = new Bitmap(w, h))
+                using (var bmp = new System.Drawing.Bitmap(w, h))
                 {
-                    using (var g = Graphics.FromImage(bmp))
+                    using (var g = System.Drawing.Graphics.FromImage(bmp))
                     {
                         IntPtr hdc = g.GetHdc();
                         try
