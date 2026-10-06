@@ -19,6 +19,10 @@ namespace QElasticWallpaper.Core
         public Native.POINT LastMouse;
         public bool HasMouse;
 
+        // 悬停光晕的平滑跟随位置（做果冻呼吸，让壁纸"动起来"）
+        double _hoverX, _hoverY;
+        bool _hoverValid;
+
         // ---- 诊断统计 ----
         public long TotalClicks;            // 钩子送到这里准备触发的点击次数
         public long SpawnedEffects;         // 实际生成的效果数
@@ -118,97 +122,111 @@ namespace QElasticWallpaper.Core
                 DrawRings(dc, px, py, p, e, baseColor, edgeSoft, globalOpacity);
             }
 
-            // 悬停光晕
+            // 悬停果冻光晕（让壁纸"动起来"）：平滑跟随鼠标 + 轻微呼吸起伏
             if (B("HoverGlow") && HasMouse)
             {
+                double targetX = LastMouse.X - originX, targetY = LastMouse.Y - originY;
+                if (!_hoverValid) { _hoverX = targetX; _hoverY = targetY; _hoverValid = true; }
+                else
+                {
+                    double k = Math.Clamp(0.22, 0.02, 1);
+                    _hoverX += (targetX - _hoverX) * k;
+                    _hoverY += (targetY - _hoverY) * k;
+                }
+
                 double hr = P("HoverGlowRadius");
                 double ha = P("HoverGlowIntensity") * globalOpacity;
+                double pulse = 0.72 + 0.28 * Math.Sin(2 * Math.PI * 0.7 * nowMs / 1000.0);
                 var g = new RadialGradientBrush();
-                g.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(255 * ha), 255, 255, 255), 0));
-                g.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 1));
+                g.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(255 * ha * pulse), 255, 240, 226), 0));
+                g.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(255 * ha * pulse * 0.4), 255, 240, 226), 0.62));
+                g.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 240, 226), 1));
                 g.Freeze();
-                dc.DrawEllipse(g, null,
-                    new Point(LastMouse.X - originX, LastMouse.Y - originY), hr, hr);
+                dc.DrawEllipse(g, null, new Point(_hoverX, _hoverY), hr, hr);
+            }
+            else if (!HasMouse)
+            {
+                _hoverValid = false;
             }
         }
 
-        // ---------- 按压的"皮肤凹陷 + Q弹回弹" ----------
+        // ---------- 真人皮肤按压 + 果冻回弹 ----------
         void DrawPress(DrawingContext dc, double px, double py, double p, RippleEffect e,
             Color baseColor, Color dark, Color bright, double highlight, double skinShading, double globalOpacity)
         {
-            // 阻尼正弦振荡：Bounce 次回弹，Damping 控制衰减
-            double osc = Math.Sin(2 * Math.PI * e.Bounce * p) * Math.Exp(-e.Damping * p);
-            double pressR = e.BaseRadius * (1 + 0.35 * osc);
-            double alpha = e.Intensity * (1 - p); // 峰值后逐渐消散
+            // 平滑按压进入（快）→ 保持 → 平滑释放，释放瞬间果冻回弹
+            double pressIn = SmoothStep(0, 0.14, p);
+            double release = SmoothStep(0.32, 1.0, p);
+            double press = pressIn * (1 - release);
 
-            var center = new Point(px, py);
+            // 果冻阻尼振荡：仅在按下后起振，做丝滑的"果冻Q弹"回弹
+            double jelly = Math.Max(0, p - 0.14);
+            double wobble = 1 + 0.42 * e.Bounce *
+                Math.Sin(2 * Math.PI * e.Bounce * 5 * jelly) * Math.Exp(-e.Damping * 5 * jelly);
 
-            // 皮肤凹陷：径向渐变（中心暗→边缘透明），模拟按进去的阴影
-            var brush = new RadialGradientBrush();
-            brush.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha * globalOpacity), 0.0));
-            brush.GradientStops.Add(new GradientStop(WithAlpha(baseColor, alpha * 0.72 * globalOpacity), 0.5));
-            brush.GradientStops.Add(new GradientStop(WithAlpha(baseColor, 0), 1.0));
-            brush.Freeze();
-            dc.DrawEllipse(brush, null, center, pressR, pressR);
+            double R = e.BaseRadius * (0.62 + 0.38 * press) * wobble;
+            double alpha = e.Intensity * globalOpacity * (0.30 + 0.70 * press);
+            if (R <= 0.5 || alpha <= 0.003) return;
 
-            // 皮肤被拉伸的高光边缘（更亮、更薄），让"真人皮肤"感更真实
-            if (highlight > 0.01)
-            {
-                var hp = new Pen(new SolidColorBrush(WithAlpha(bright, alpha * highlight * globalOpacity)), 2);
-                hp.Freeze();
-                dc.DrawEllipse(null, hp, center, pressR * 0.98, pressR * 0.98);
-            }
+            var c = new Point(px, py);
 
-            // 一层淡淡的扩散辉光
-            if (skinShading > 0.02)
-            {
-                var glow = new RadialGradientBrush();
-                glow.GradientStops.Add(new GradientStop(WithAlpha(bright, alpha * 0.15 * skinShading * globalOpacity), 0.55));
-                glow.GradientStops.Add(new GradientStop(WithAlpha(bright, 0), 1.0));
-                glow.Freeze();
-                dc.DrawEllipse(glow, null, center, pressR * 1.9, pressR * 1.9);
-            }
+            // 真人皮肤按压：中心凹陷阴影 → 皮肤色 → 边缘被拉伸的隆起高光 → 透明
+            var b = new RadialGradientBrush();
+            b.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha), 0.0));
+            b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, alpha * 0.62), 0.50));
+            b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, alpha * 0.30), 0.72));
+            b.GradientStops.Add(new GradientStop(WithAlpha(bright, alpha * 0.45 * highlight), 0.86));
+            b.GradientStops.Add(new GradientStop(WithAlpha(bright, 0), 1.0));
+            b.Freeze();
+            dc.DrawEllipse(b, null, c, R, R);
         }
 
-        // ---------- 向外扩散的波纹环（同样带 Q 弹振荡） ----------
+        // ---------- 柔和水波（径向软带，不再是一圈圈白圈） ----------
         void DrawRings(DrawingContext dc, double px, double py, double p, RippleEffect e,
             Color baseColor, double edgeSoft, double globalOpacity)
         {
-            var center = new Point(px, py);
-            int n = e.RippleCount;
+            var c = new Point(px, py);
+            int n = Math.Max(1, Math.Min(4, e.RippleCount));   // 太多环会乱，限制在 4 层内
             for (int i = 0; i < n; i++)
             {
-                double fi = n == 1 ? 0.5 : i / (double)(n - 1);
-                double ringDur = e.DurationMs * 0.72;
-                double start = e.StartMs + fi * e.DurationMs * 0.32; // 逐环错开出现
-                double t = (NowMs() - start) / ringDur;
-                if (t < 0 || t > 1) continue;
+                double delay = i * 0.16;
+                double t = Math.Clamp((p - delay) / 0.72, 0, 1);
+                if (t <= 0 || t >= 1) continue;
 
-                // 半径：基准 + 扩散 + 果冻振荡
-                double rt = e.BaseRadius + e.Growth * t;
-                rt += e.BaseRadius * 0.25 * Math.Sin(2 * Math.PI * e.Bounce * t) * Math.Exp(-e.Damping * t);
-                if (rt <= 0) continue;
+                double grow = SmoothStep(0, 1, t);
+                double R = e.BaseRadius * 0.7 + e.Growth * grow;
+                double a = e.Intensity * globalOpacity * (1 - grow) * (i == 0 ? 0.30 : 0.18);
+                if (R <= 0.5 || a <= 0.003) continue;
 
-                double alpha = e.Intensity * (1 - t) * 0.55 * globalOpacity;
-                double th = Math.Max(1, e.RingThickness * (1 - 0.5 * t));
+                // 水波软带：径向渐变在半径 R（=椭圆边缘）处形成一条柔和的波峰
+                double W = Math.Max(e.RingThickness * 0.6, R * 0.14);
+                double u0 = Math.Clamp((R - W) / R, 0, 0.99);
+                var b = new RadialGradientBrush();
+                b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, 0), 0.0));
+                b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, 0), u0));
+                b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, a), 1.0));
+                b.Freeze();
+                dc.DrawEllipse(b, null, c, R, R);
 
-                var pen = new Pen(new SolidColorBrush(WithAlpha(baseColor, alpha)), th);
-                pen.StartLineCap = PenLineCap.Round;
-                pen.EndLineCap = PenLineCap.Round;
-                pen.Freeze();
-                dc.DrawEllipse(null, pen, center, rt, rt);
-
-                // 边缘柔化：再叠一圈更淡更宽的晕
-                if (edgeSoft > 0.02)
+                // 外缘羽化：再叠一层更大的淡波，让水波边缘柔和过渡
+                if (edgeSoft > 0.03)
                 {
-                    var soft = new Pen(new SolidColorBrush(WithAlpha(baseColor, alpha * 0.35)), th * (2 + 3 * edgeSoft));
-                    soft.Freeze();
-                    dc.DrawEllipse(null, soft, center, rt, rt);
+                    var ob = new RadialGradientBrush();
+                    ob.GradientStops.Add(new GradientStop(WithAlpha(baseColor, a * 0.4), u0));
+                    ob.GradientStops.Add(new GradientStop(WithAlpha(baseColor, 0), 1.0));
+                    ob.Freeze();
+                    dc.DrawEllipse(ob, null, c, R * (1.15 + 0.25 * edgeSoft), R * (1.15 + 0.25 * edgeSoft));
                 }
             }
         }
 
         // ---------- 颜色工具 ----------
+        static double SmoothStep(double a, double b, double x)
+        {
+            double t = Math.Clamp((x - a) / (b - a), 0, 1);
+            return t * t * (3 - 2 * t);
+        }
+
         static Color LerpColor(Color a, Color b, double t)
         {
             t = Math.Clamp(t, 0, 1);

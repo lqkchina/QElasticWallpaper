@@ -79,42 +79,42 @@ namespace QElasticWallpaper.Core
             });
             Add(list, new Param
             {
-                Key = "RippleCount", Label = "波纹层数", Unit = "层", Kind = ParamKind.Slider, Min = 1, Max = 16, Value = 5,
-                Description = "一次点击向外扩散的波纹环数量，越多越饱满。"
+                Key = "RippleCount", Label = "波纹层数", Unit = "层", Kind = ParamKind.Slider, Min = 1, Max = 16, Value = 3,
+                Description = "一次点击向外扩散的柔和水波带数量，越多越饱满（建议 2~4 最干净）。"
             });
             Add(list, new Param
             {
-                Key = "BaseRadius", Label = "按压基准半径", Unit = "px", Kind = ParamKind.Slider, Min = 15, Max = 400, Value = 42,
+                Key = "BaseRadius", Label = "按压基准半径", Unit = "px", Kind = ParamKind.Slider, Min = 15, Max = 400, Value = 55,
                 Description = "手指按压形成的初始皮肤凹陷大小。"
             });
             Add(list, new Param
             {
-                Key = "RadiusGrowth", Label = "波纹扩散距离", Unit = "px", Kind = ParamKind.Slider, Min = 0, Max = 1200, Value = 260,
-                Description = "波纹从中心向外扩散的行程长度，越大波及范围越广。"
+                Key = "RadiusGrowth", Label = "波纹扩散距离", Unit = "px", Kind = ParamKind.Slider, Min = 0, Max = 1200, Value = 320,
+                Description = "水波从中心向外扩散的行程长度，越大波及范围越广。"
             });
             Add(list, new Param
             {
-                Key = "RingThickness", Label = "波纹粗细", Unit = "px", Kind = ParamKind.Slider, Min = 1, Max = 60, Value = 6,
-                Description = "每条波纹环的线宽。"
+                Key = "RingThickness", Label = "波纹粗细", Unit = "px", Kind = ParamKind.Slider, Min = 1, Max = 60, Value = 16,
+                Description = "水波带的宽度，越大越柔和越像水波。"
             });
             Add(list, new Param
             {
-                Key = "Intensity", Label = "整体强度", Unit = "％", Kind = ParamKind.Slider, Min = 0.05, Max = 1, Value = 0.82,
+                Key = "Intensity", Label = "整体强度", Unit = "％", Kind = ParamKind.Slider, Min = 0.05, Max = 1, Value = 0.9,
                 Description = "所有效果的最大透明度/浓度，越大越明显。"
             });
             Add(list, new Param
             {
-                Key = "Bounce", Label = "Q弹回弹次数", Kind = ParamKind.Slider, Min = 0, Max = 12, Value = 3,
+                Key = "Bounce", Label = "Q弹回弹次数", Kind = ParamKind.Slider, Min = 0, Max = 12, Value = 4,
                 Description = "皮肤按压后回弹振荡的次数，越大越'果冻感'。设为 0 则只压不回弹。"
             });
             Add(list, new Param
             {
-                Key = "Damping", Label = "回弹衰减", Kind = ParamKind.Slider, Min = 0.2, Max = 8, Value = 2.2,
+                Key = "Damping", Label = "回弹衰减", Kind = ParamKind.Slider, Min = 0.2, Max = 8, Value = 1.8,
                 Description = "振荡衰减速度。越小回弹越久越软；越大回弹越快越硬。"
             });
             Add(list, new Param
             {
-                Key = "Duration", Label = "单次动画时长", Unit = "ms", Kind = ParamKind.Slider, Min = 150, Max = 4000, Value = 950,
+                Key = "Duration", Label = "单次动画时长", Unit = "ms", Kind = ParamKind.Slider, Min = 150, Max = 4000, Value = 1200,
                 Description = "一次按压从出现到完全消散的总时间。"
             });
             Add(list, new Param
@@ -134,8 +134,8 @@ namespace QElasticWallpaper.Core
             });
             Add(list, new Param
             {
-                Key = "EdgeSoftness", Label = "边缘柔化", Unit = "％", Kind = ParamKind.Slider, Min = 0, Max = 1, Value = 0.5,
-                Description = "波纹边缘的羽化程度，越大越柔和。"
+                Key = "EdgeSoftness", Label = "边缘柔化", Unit = "％", Kind = ParamKind.Slider, Min = 0, Max = 1, Value = 0.7,
+                Description = "水波边缘的羽化程度，越大越柔和。"
             });
             Add(list, new Param
             {
@@ -211,9 +211,9 @@ namespace QElasticWallpaper.Core
                 ["默认最优（推荐）"] = new Dictionary<string, double>
                 {
                     ["Enabled"] = 1, ["TriggerMode"] = 0,
-                    ["RippleCount"] = 5, ["BaseRadius"] = 42, ["RadiusGrowth"] = 260, ["RingThickness"] = 6,
-                    ["Intensity"] = 0.82, ["Bounce"] = 3, ["Damping"] = 2.2, ["Duration"] = 950,
-                    ["PressDepth"] = 0.6, ["SkinShading"] = 0.7, ["Highlight"] = 0.55, ["EdgeSoftness"] = 0.5,
+                    ["RippleCount"] = 3, ["BaseRadius"] = 55, ["RadiusGrowth"] = 320, ["RingThickness"] = 16,
+                    ["Intensity"] = 0.9, ["Bounce"] = 4, ["Damping"] = 1.8, ["Duration"] = 1200,
+                    ["PressDepth"] = 0.6, ["SkinShading"] = 0.7, ["Highlight"] = 0.55, ["EdgeSoftness"] = 0.7,
                     ["GlobalOpacity"] = 1.0, ["RandomVariation"] = 0.2, ["MaxEffects"] = 30, ["TargetFps"] = 60,
                     ["HoverGlow"] = 0, ["HoverGlowRadius"] = 60, ["HoverGlowIntensity"] = 0.12,
                     ["SoundEnabled"] = 0, ["SoundVolume"] = 0.5,
