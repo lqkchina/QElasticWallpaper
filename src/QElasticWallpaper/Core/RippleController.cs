@@ -273,12 +273,12 @@ namespace QElasticWallpaper.Core
                         }
                         finally { g.ReleaseHdc(hdc); }
                     }
-                    var src = Imaging.CreateBitmapSourceFromHBitmap(
-                        bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    var src = System.Windows.Media.Imaging.Imaging.CreateBitmapSourceFromHBitmap(
+                        bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
                     src.Freeze();
                     _desktop = src;
                 }
-                LastWallpaperCaptureMs = NowMs();
+                LastWallpaperCaptureMs = (long)NowMs();
             }
             catch { _desktop = null; }
         }
