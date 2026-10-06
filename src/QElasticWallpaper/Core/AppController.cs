@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -18,6 +19,7 @@ namespace QElasticWallpaper.Core
         MouseHook _hook;
         TrayHost _tray;
         SettingsWindow _settings;
+        EventWaitHandle _showEvent;
 
         const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string StartupValue = "QElasticWallpaper";
@@ -91,6 +93,23 @@ namespace QElasticWallpaper.Core
             if (Get("LaunchAtStartup").BoolValue)
                 SetStartup(true);
 
+            // 单实例监听：用户重复双击 EXE 时（新进程只会发出信号就退出），
+            // 在这里把设置窗口调到前台，而不是"没反应"。
+            _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset,
+                @"Global\QElasticWallpaper_ShowSettings", out _);
+            var ui = Application.Current?.Dispatcher;
+            var ev = _showEvent;
+            var listener = new Thread(() =>
+            {
+                while (ev != null)
+                {
+                    try { ev.WaitOne(); } catch { break; }
+                    try { ui?.BeginInvoke(new Action(ShowSettings)); } catch { }
+                }
+            });
+            listener.IsBackground = true;
+            listener.Start();
+
             // 启动即最小化则不弹设置窗口
             if (!Get("StartMinimized").BoolValue)
                 ShowSettings();
@@ -109,11 +128,38 @@ namespace QElasticWallpaper.Core
         {
             if (_settings == null)
             {
-                _settings = new SettingsWindow(_cfg, OnSettingsChanged);
+                _settings = new SettingsWindow(_cfg, OnSettingsChanged, BuildDiagnostics);
                 _settings.Closed += (s, e) => _settings = null;
             }
             _settings.Show();
             _settings.Activate();
+        }
+
+        /// <summary>生成诊断文本：程序开着但不生效时，复制这段发给我即可定位。</summary>
+        public string BuildDiagnostics()
+        {
+            var sb = new System.Text.StringBuilder();
+            var asm = System.Reflection.Assembly.GetExecutingAssembly().GetName();
+            sb.AppendLine("==== Q弹桌面壁纸 运行诊断 ====");
+            sb.AppendLine("版本: " + asm.Version);
+            sb.AppendLine("系统: " + Environment.OSVersion.VersionString);
+            sb.AppendLine("时间: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            sb.AppendLine("配置路径: " + ConfigStore.ConfigPath);
+            sb.AppendLine();
+            sb.AppendLine("启用效果: " + Get("Enabled").BoolValue);
+            sb.AppendLine("触发模式: " + (Get("TriggerMode").Value == 2 ? "任意左键(2)"
+                : Get("TriggerMode").Value == 1 ? "桌面+应用背景(1)" : "仅桌面(0)"));
+            sb.AppendLine("效果层位置: " + (Get("OverlayLayer").Value == 1 ? "置顶(1)" : "图标之下(0)"));
+            sb.AppendLine("声音: " + (Get("SoundEnabled").BoolValue ? "开" : "关"));
+            sb.AppendLine();
+            sb.AppendLine("效果层: " + (_overlay?.Summary ?? "(未创建)"));
+            sb.AppendLine("鼠标钩子: " + (_hook?.Summary ?? "(未创建)"));
+            sb.AppendLine("点击统计: " + (_ctrl?.Stats ?? "(未创建)"));
+            sb.AppendLine();
+            sb.AppendLine("==== 错误日志 ====");
+            string log = ErrorLog.ReadAll();
+            sb.AppendLine(string.IsNullOrWhiteSpace(log) ? "(暂无错误记录)" : log);
+            return sb.ToString();
         }
 
         void OnSettingsChanged()
@@ -148,6 +194,7 @@ namespace QElasticWallpaper.Core
 
         public void Dispose()
         {
+            if (_showEvent != null) { try { _showEvent.Dispose(); } catch { } _showEvent = null; }
             _hook?.Dispose();
             _hook = null;
             _tray?.Dispose();

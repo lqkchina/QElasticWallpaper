@@ -20,6 +20,27 @@ namespace QElasticWallpaper.Core
         double _lastFrameMs = 0;
         readonly double _originX, _originY;
         double _dpiX = 1.0, _dpiY = 1.0;   // PixelsPerDip，初始化时缓存，跨线程安全
+        IntPtr _hwnd = IntPtr.Zero;
+
+        // ---- 诊断字段 ----
+        public bool EmbedTried;      // 是否尝试过嵌入桌面壁纸层
+        public bool EmbedSuccess;    // 是否成功嵌入（图标之下）
+        public bool FallbackBottom;  // 是否退化为置底显示
+
+        /// <summary>诊断：效果层当前状态。</summary>
+        public string Summary
+        {
+            get
+            {
+                string layer = _embedBelowIcons ? "图标之下" : "置顶";
+                string emb;
+                if (!_embedBelowIcons) emb = "置顶模式";
+                else if (EmbedSuccess) emb = "已嵌入桌面壁纸层(图标之下)";
+                else if (FallbackBottom) emb = "嵌入失败→置底显示(效果在图标上方)";
+                else emb = "未知";
+                return $"{layer}  {emb}  窗口句柄:0x{_hwnd.ToInt64():X}  缩放:{_dpiX:0.##}  {SystemParameters.VirtualScreenWidth:0}×{SystemParameters.VirtualScreenHeight:0}";
+            }
+        }
 
         public OverlayWindow(RippleController ctrl, bool embedBelowIcons)
         {
@@ -57,6 +78,7 @@ namespace QElasticWallpaper.Core
         {
             var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
             if (hwnd == IntPtr.Zero) return;
+            _hwnd = hwnd;
 
             // 缓存本窗口 DPI，供 PhysicalToDip 从任意线程安全调用。
             // PixelsPerDip = 窗口DPI / 96；取不到时按 96（100% 缩放）处理。
@@ -68,10 +90,16 @@ namespace QElasticWallpaper.Core
             if (_embedBelowIcons)
             {
                 // 首选：塞进桌面壁纸宿主，垫在图标下面
+                EmbedTried = true;
                 if (!TryEmbedBelowIcons(hwnd))
                 {
                     // 退化：作为普通窗口置底（效果仍会显示，只是盖在图标上）
+                    FallbackBottom = true;
                     SetWindowPosBottom(hwnd);
+                }
+                else
+                {
+                    EmbedSuccess = true;
                 }
             }
             // 置顶模式：什么都不做，由 AppController 设置 Topmost=true

@@ -27,5 +27,16 @@ namespace QElasticWallpaper.Core
         }
 
         public static void Write(Exception ex) => Write(ex?.ToString() ?? "未知异常");
+
+        /// <summary>读取整份错误日志（没有则返回空串）。</summary>
+        public static string ReadAll()
+        {
+            try
+            {
+                if (File.Exists(LogFile)) return File.ReadAllText(LogFile);
+            }
+            catch { }
+            return "";
+        }
     }
 }

@@ -28,6 +28,12 @@ namespace QElasticWallpaper.Core
         /// </summary>
         public IntPtr OverlayHandle = IntPtr.Zero;
 
+        // ---- 诊断字段 ----
+        public int HookOk = 0;                  // 钩子是否安装成功 0/1
+        public string HookError = "";           // 钩子异常信息
+        public long ReceivedLeftDown;           // 钩子收到的所有左键按下次数
+        public long DesktopMatches;             // 判定为"桌面"并触发效果次数
+
         public void Start(int triggerMode)
         {
             TriggerMode = triggerMode;
@@ -47,6 +53,8 @@ namespace QElasticWallpaper.Core
                     IntPtr hMod = Native.GetModuleHandle(module?.ModuleName);
                     _hook = Native.SetWindowsHookEx(Native.WH_MOUSE_LL, _proc, hMod, 0);
                 }
+                HookOk = _hook != IntPtr.Zero ? 1 : 0;
+                if (HookOk == 0) HookError = "钩子安装失败（SetWindowsHookEx 返回 0）";
 
                 var msg = new Native.MSG();
                 while (_running && _hook != IntPtr.Zero)
@@ -60,6 +68,7 @@ namespace QElasticWallpaper.Core
             catch (Exception ex)
             {
                 // 钩子线程出错绝不能拖垮主程序：记录日志，静默降级（效果层仍在，只是点击不触发）
+                HookError = ex.Message;
                 ErrorLog.Write(ex);
             }
             finally
@@ -80,8 +89,12 @@ namespace QElasticWallpaper.Core
                 switch (wParam.ToInt64())
                 {
                     case Native.WM_LBUTTONDOWN:
+                        ReceivedLeftDown++;
                         if (ShouldTrigger(data.pt))
+                        {
+                            DesktopMatches++;
                             LeftDown?.Invoke(data.pt);
+                        }
                         break;
                     case Native.WM_MOUSEMOVE:
                         MouseMove?.Invoke(data.pt);
@@ -89,6 +102,18 @@ namespace QElasticWallpaper.Core
                 }
             }
             return Native.CallNextHookEx(_hook, nCode, wParam, lParam);
+        }
+
+        /// <summary>诊断：鼠标钩子安装状态与点击统计。</summary>
+        public string Summary
+        {
+            get
+            {
+                string s = HookOk == 1 ? "已安装(正常)" : "未安装(异常)";
+                s += $"  收到左键点击:{ReceivedLeftDown}  判定为桌面:{DesktopMatches}";
+                if (!string.IsNullOrEmpty(HookError)) s += "  错误:" + HookError;
+                return s;
+            }
         }
 
         /// <summary>某坐标是否属于"桌面区域"（含我们自己的透明效果层）。</summary>

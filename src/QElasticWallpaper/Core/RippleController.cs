@@ -19,6 +19,12 @@ namespace QElasticWallpaper.Core
         public Native.POINT LastMouse;
         public bool HasMouse;
 
+        // ---- 诊断统计 ----
+        public long TotalClicks;            // 钩子送到这里准备触发的点击次数
+        public long SpawnedEffects;         // 实际生成的效果数
+        public long BlockedByDisabled;      // 因"启用效果=关"被拦下的点击数
+        public int ActiveCount { get { lock (_active) return _active.Count; } }
+
         public RippleController(List<Param> cfg) => _cfg = cfg;
 
         double P(string k) => Get(k).Value;
@@ -29,7 +35,12 @@ namespace QElasticWallpaper.Core
         /// <summary>在屏幕坐标 (x,y) 生成一次点击效果。</summary>
         public void Spawn(double x, double y)
         {
-            if (!B("Enabled")) return;
+            TotalClicks++;
+            if (!B("Enabled"))
+            {
+                BlockedByDisabled++;
+                return;
+            }
 
             double duration = P("Duration");
             double variation = P("RandomVariation");
@@ -52,6 +63,7 @@ namespace QElasticWallpaper.Core
                 int max = (int)P("MaxEffects");
                 while (_active.Count > max) _active.RemoveAt(0); // 防爆：丢弃最老的
             }
+            SpawnedEffects++;
         }
 
         public void SetMouse(Native.POINT pt)
@@ -62,6 +74,10 @@ namespace QElasticWallpaper.Core
 
         /// <summary>目标渲染帧率。</summary>
         public double GetFps() => P("TargetFps");
+
+        /// <summary>诊断：点击/效果统计。</summary>
+        public string Stats =>
+            $"收到点击:{TotalClicks}  已生成效果:{SpawnedEffects}  被禁用拦截:{BlockedByDisabled}  当前活动:{ActiveCount}";
 
         public static double NowMs()
             => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;

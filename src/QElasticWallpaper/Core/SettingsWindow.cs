@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace QElasticWallpaper.Core
 {
@@ -14,13 +15,17 @@ namespace QElasticWallpaper.Core
     {
         readonly List<Param> _cfg;
         readonly Action _onChanged;
+        readonly Func<string> _diagProvider;
         readonly ComboBox _presetBox;
         readonly TextBlock _pathText;
+        TextBox _diagBox;
+        DispatcherTimer _diagTimer;
 
-        public SettingsWindow(List<Param> cfg, Action onChanged)
+        public SettingsWindow(List<Param> cfg, Action onChanged, Func<string> diagnosticsProvider = null)
         {
             _cfg = cfg;
             _onChanged = onChanged;
+            _diagProvider = diagnosticsProvider;
 
             Title = "Q弹桌面壁纸 · 设置";
             Width = 560;
@@ -90,10 +95,23 @@ namespace QElasticWallpaper.Core
 
             DockPanel.SetDock(top, Dock.Top);
             root.Children.Add(top);
+
+            // ---------- 底部：运行诊断面板 ----------
+            var diag = BuildDiagPanel();
+            DockPanel.SetDock(diag, Dock.Bottom);
+            root.Children.Add(diag);
+
             root.Children.Add(scroll);
 
             Content = root;
             Rebuild();
+
+            // 诊断区每秒自动刷新（状态、点击计数、错误日志实时更新）
+            _diagTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _diagTimer.Tick += (s, e) => RefreshDiag();
+            _diagTimer.Start();
+            Closed += (s, e) => _diagTimer.Stop();
+            RefreshDiag();
 
             // _panel 已就绪，安全地默认选中"默认最优"，避免下拉框空白
             if (_presetBox.Items.Count > 0) _presetBox.SelectedIndex = 0;
@@ -254,5 +272,57 @@ namespace QElasticWallpaper.Core
         }
 
         void ShowTip(string msg) => MessageBox.Show(this, msg, "Q弹桌面壁纸");
+
+        /// <summary>底部诊断面板：只读文本框 + 复制按钮，实时刷新。</summary>
+        Panel BuildDiagPanel()
+        {
+            var box = new DockPanel { Margin = new Thickness(0, 12, 0, 0) };
+
+            var head = new DockPanel();
+            head.Children.Add(new TextBlock
+            {
+                Text = "运行诊断（打不开 / 不生效时，点“复制诊断”发给我）",
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var copyBtn = MakeButton("复制诊断", () =>
+            {
+                Clipboard.SetText(_diagBox.Text);
+                ShowTip("已复制，直接粘贴发给作者即可");
+            });
+            DockPanel.SetDock(copyBtn, Dock.Right);
+            head.Children.Add(copyBtn);
+            DockPanel.SetDock(head, Dock.Top);
+            box.Children.Add(head);
+
+            _diagBox = new TextBox
+            {
+                IsReadOnly = true,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                Height = 190,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.NoWrap,
+                Margin = new Thickness(0, 6, 0, 0)
+            };
+            box.Children.Add(_diagBox);
+            return box;
+        }
+
+        void RefreshDiag()
+        {
+            if (_diagBox == null) return;
+            try
+            {
+                _diagBox.Text = _diagProvider?.Invoke() ?? "(无诊断数据)";
+            }
+            catch (Exception ex)
+            {
+                _diagBox.Text = "生成诊断信息失败：\n" + ex.Message;
+            }
+        }
     }
 }
