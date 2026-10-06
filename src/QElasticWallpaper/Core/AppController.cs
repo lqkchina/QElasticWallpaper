@@ -24,8 +24,12 @@ namespace QElasticWallpaper.Core
         const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string StartupValue = "QElasticWallpaper";
 
+        static string VersionTag =>
+            System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?";
+
         public void Start()
         {
+            ErrorLog.Write("【启动】程序开始初始化，版本 " + VersionTag);
             _cfg = ConfigStore.Load();
             _ctrl = new RippleController(_cfg);
 
@@ -34,6 +38,7 @@ namespace QElasticWallpaper.Core
             bool embedBelowIcons = (int)Get("OverlayLayer").Value == 0;
             _overlay = new OverlayWindow(_ctrl, embedBelowIcons);
             _overlay.Show();
+            ErrorLog.Write("【启动】效果层已创建并显示");
 
             // 置顶模式：把效果层升到最上层
             ApplyLayerParam();
@@ -64,6 +69,7 @@ namespace QElasticWallpaper.Core
                 }
             };
             _hook.Start(_hook.TriggerMode);
+            ErrorLog.Write("【启动】鼠标钩子线程已启动");
 
             // 托盘
             _tray = new TrayHost();
@@ -112,7 +118,11 @@ namespace QElasticWallpaper.Core
 
             // 启动即最小化则不弹设置窗口
             if (!Get("StartMinimized").BoolValue)
+            {
+                ErrorLog.Write("【启动】准备显示设置窗口");
                 ShowSettings();
+            }
+            ErrorLog.Write("【启动】初始化完成，程序进入运行状态");
         }
 
         Param Get(string key) => _cfg.Find(p => p.Key == key);

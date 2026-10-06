@@ -76,6 +76,13 @@ git push -u origin master
 
 如果不想要自动构建，也可以忽略该工作流，纯按第 3 步手动出 EXE。
 
+### 5. 版本号与回滚
+
+- 版本号定义在 `src/QElasticWallpaper/QElasticWallpaper.csproj` 的 `<Version>1.0.0</Version>`。
+- **每次修复 bug 后**，把这里的版本号 +1（如 `1.0.0 → 1.1.0`），打出的 EXE 文件名会自动带上版本号（`QElasticWallpaper-1.1.0.exe`），便于区分和回滚。
+- 打 tag（`git tag v1.1.0 && git push --tags`）会在 GitHub 生成对应版本的 **Release**，旧版本永远保留，随时可回滚下载。
+- 修改版本号后记得同时更新 `README.md` 顶部或版本说明，保持一致。
+
 ---
 
 ## 全部可调参数

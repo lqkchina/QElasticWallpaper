@@ -15,11 +15,21 @@ namespace QElasticWallpaper
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
                 ErrorLog.Write(e.ExceptionObject as Exception ?? new Exception("未处理异常"));
 
-            // 单实例：重复启动直接退出（避免两个效果层打架）
+            // 单实例：已经有一个实例在跑时，通知它弹出设置窗口，然后本进程退出。
+            // （否则用户重复双击会"没反应"，误以为程序坏了。）
             using (var mutex = new Mutex(true, @"Global\QElasticWallpaper_Singleton", out bool createdNew))
             {
                 if (!createdNew)
                 {
+                    try
+                    {
+                        using (var ev = new EventWaitHandle(false, EventResetMode.AutoReset,
+                                     @"Global\QElasticWallpaper_ShowSettings"))
+                        {
+                            ev.Set(); // 唤醒第一个实例去弹出设置窗口
+                        }
+                    }
+                    catch { }
                     return;
                 }
 
@@ -32,6 +42,7 @@ namespace QElasticWallpaper
                     controller = new AppController();
                     controller.Start();
                     app.Run();
+                    ErrorLog.Write("【退出】程序正常退出（托盘里选了“退出程序”或被关闭）");
                 }
                 catch (Exception ex)
                 {
