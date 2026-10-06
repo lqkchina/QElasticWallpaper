@@ -125,10 +125,7 @@ namespace QElasticWallpaper.Core
                 double px = e.X - originX;
                 double py = e.Y - originY;
 
-                if (_desktop != null)
-                    DrawPressDeform(dc, px, py, p, e, baseColor, dark, bright, highlight, pressDepth, globalOpacity);
-                else
-                    DrawPressFallback(dc, px, py, p, e, baseColor, dark, bright, highlight, globalOpacity);
+                DrawJelly(dc, px, py, p, e, globalOpacity);
             }
 
             // 悬停果冻光晕（让壁纸"动起来"）：平滑跟随鼠标 + 轻微呼吸起伏
@@ -159,70 +156,63 @@ namespace QElasticWallpaper.Core
             }
         }
 
-        // ---------- 壁纸"凸透镜鼓起 + 果冻回弹"（真·壁纸形变，不是画圆圈） ----------
-        void DrawPressDeform(DrawingContext dc, double px, double py, double p, RippleEffect e,
-            Color baseColor, Color dark, Color bright, double highlight, double pressDepth, double globalOpacity)
+        // ---------- 果冻按压 + 回弹：一个透明、光泽、强烈Q弹的果冻包 ----------
+        // 不是皮肤、不是水波、不是圆圈 —— 就是一块透明的果冻：被按进去会凹，
+        // 松手带光泽来回Q弹（压扁→鼓起→回荡），全程只有果冻在动。
+        void DrawJelly(DrawingContext dc, double px, double py, double p, RippleEffect e,
+            double globalOpacity)
         {
-            // 按下快速进入 + 果冻阻尼震荡（按下、回弹全程都是果冻Q弹）+ 释放淡出
-            double tIn = SmoothStep(0, 0.12, p);                 // 按下进入
-            double tJelly = Math.Max(0, p - 0.08);               // 起振点
-            double decay = Math.Exp(-e.Damping * 6 * tJelly);    // 果冻阻尼衰减
-            double wobble = decay * (Math.Sin(2 * Math.PI * e.Bounce * 4 * tJelly)
-                                     + 0.35 * Math.Sin(2 * Math.PI * e.Bounce * 9 * tJelly)); // 双频果冻，更Q
-            double fade = 1 - SmoothStep(0.70, 1.0, p);          // 释放淡出
+            // 按压进入 + 果冻阻尼震荡（按下、回弹全程都Q弹）+ 释放淡出
+            double tIn = SmoothStep(0, 0.10, p);                 // 按压进入
+            double tJ = Math.Max(0, p - 0.05);                   // 起振点
+            double decay = Math.Exp(-e.Damping * 2.0 * tJ);      // 果冻阻尼衰减（放慢，弹得久）
+            double wob = decay * (Math.Sin(2 * Math.PI * e.Bounce * 2.2 * tJ)
+                                  + 0.35 * Math.Sin(2 * Math.PI * e.Bounce * 4.6 * tJ)); // 双频，更Q
+            double fade = 1 - SmoothStep(0.75, 1.0, p);          // 释放淡出
 
-            double bulge = e.Intensity * 0.46 * tIn * (1 + 0.62 * wobble) * fade; // 凸起(放大)强度
-            double R = e.BaseRadius * (0.8 + 0.2 * tIn) * (1 + 0.13 * wobble) * (0.6 + 0.4 * fade);
-            if (R <= 1.0 || bulge <= 0.001 || fade <= 0.002) return;
-
-            // 纯壁纸形变：中心放大(鼓起)、边缘还原，无缝衔接 —— 只有壁纸在动，没有任何圆圈/描边
-            double vsW = SystemParameters.VirtualScreenWidth;
-            double vsH = SystemParameters.VirtualScreenHeight;
-            var rect = new Rect(0, 0, vsW, vsH);
-            int N = 14;   // 圈数多一些，变形过渡更丝滑，不露圈
-            for (int i = 0; i < N; i++)
-            {
-                double fr0 = (double)i / N, fr1 = (double)(i + 1) / N;
-                double fr = (fr0 + fr1) / 2;
-                double s = 1 + bulge * (1 - fr) * (1 - fr);
-                if (Math.Abs(s - 1) < 0.004) continue;
-
-                var ring = new CombinedGeometry(GeometryCombineMode.Exclude,
-                    new EllipseGeometry(new Point(px, py), R * fr1, R * fr1),
-                    new EllipseGeometry(new Point(px, py), R * fr0, R * fr0));
-                dc.PushClip(ring);
-                dc.PushTransform(ScaleAround(px, py, s));
-                dc.DrawImage(_desktop, rect);
-                dc.Pop();
-                dc.Pop();
-            }
-        }
-
-        // ---------- 兜底：万一壁纸没截到，画一个柔和的皮肤凹陷（同样无圆圈） ----------
-        void DrawPressFallback(DrawingContext dc, double px, double py, double p, RippleEffect e,
-            Color baseColor, Color dark, Color bright, double highlight, double globalOpacity)
-        {
-            double pressIn = SmoothStep(0, 0.14, p);
-            double release = SmoothStep(0.32, 1.0, p);
-            double press = pressIn * (1 - release);
-
-            double jelly = Math.Max(0, p - 0.14);
-            double wobble = 1 + 0.42 * e.Bounce *
-                Math.Sin(2 * Math.PI * e.Bounce * 5 * jelly) * Math.Exp(-e.Damping * 5 * jelly);
-
-            double R = e.BaseRadius * (0.62 + 0.38 * press) * wobble;
-            double alpha = e.Intensity * globalOpacity * (0.30 + 0.70 * press);
-            if (R <= 0.5 || alpha <= 0.003) return;
+            double R = e.BaseRadius * (0.55 + 0.45 * tIn) * (1 + 0.30 * wob) * (0.55 + 0.45 * fade);
+            double alpha = e.Intensity * globalOpacity * (0.35 + 0.65 * tIn) * fade;
+            if (R <= 1.0 || alpha <= 0.003 || fade <= 0.002) return;
 
             var c = new Point(px, py);
-            var b = new RadialGradientBrush();
-            b.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha), 0.0));
-            b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, alpha * 0.62), 0.50));
-            b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, alpha * 0.30), 0.72));
-            b.GradientStops.Add(new GradientStop(WithAlpha(bright, alpha * 0.45 * highlight), 0.86));
-            b.GradientStops.Add(new GradientStop(WithAlpha(bright, 0), 1.0));
-            b.Freeze();
-            dc.DrawEllipse(b, null, c, R, R);
+
+            // 果冻被按扁又弹起：竖直方向的果冻形变（压扁→拉长→回荡）
+            double squash = 1 + 0.20 * Math.Cos(2 * Math.PI * e.Bounce * 2.2 * tJ) * decay;
+            double rx = R, ry = R / squash;
+
+            // 1) 半透明果冻体（壁纸从里面透出来）
+            var body = new RadialGradientBrush();
+            body.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(255, 244, 235), alpha * 0.16), 0.0));
+            body.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(255, 244, 235), alpha * 0.08), 0.55));
+            body.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(255, 244, 235), alpha * 0.22), 1.0));
+            body.Freeze();
+            dc.DrawEllipse(body, null, c, rx, ry);
+
+            // 2) 边缘柔影（下半稍暗），让果冻有立体厚度
+            var edge = new RadialGradientBrush();
+            edge.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(140, 120, 110), 0), 0.0));
+            edge.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(140, 120, 110), 0), 0.72));
+            edge.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(140, 120, 110), alpha * 0.12), 1.0));
+            edge.Freeze();
+            dc.DrawEllipse(edge, null, c, rx, ry);
+
+            // 3) 移动的光泽高光点（果冻的Q弹光泽），随震荡滑动
+            double gx = px - rx * 0.30 + rx * 0.14 * wob;
+            double gy = py - ry * 0.32 + ry * 0.10 * wob;
+            double gr = Math.Max(rx, ry) * 0.42;
+            var gloss = new RadialGradientBrush();
+            gloss.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(255 * alpha * 0.85), 255, 255, 255), 0.0));
+            gloss.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(255 * alpha * 0.30), 255, 255, 255), 0.5));
+            gloss.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 1.0));
+            gloss.Freeze();
+            dc.DrawEllipse(gloss, null, new Point(gx, gy), gr, gr);
+
+            // 4) 按压点的小凹坑（中心微暗），表现"被按进去"
+            var pit = new RadialGradientBrush();
+            pit.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(160, 140, 130), alpha * 0.16), 0.0));
+            pit.GradientStops.Add(new GradientStop(WithAlpha(Color.FromRgb(160, 140, 130), 0), 0.5));
+            pit.Freeze();
+            dc.DrawEllipse(pit, null, c, rx * 0.6, ry * 0.6);
         }
 
         /// <summary>把整个屏幕(壁纸)截下来，作为形变素材。失败则 _desktop 保持为空并走兜底。</summary>
