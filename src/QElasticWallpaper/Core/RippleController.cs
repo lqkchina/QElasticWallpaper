@@ -1,19 +1,28 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace QElasticWallpaper.Core
 {
     /// <summary>
     /// 渲染控制器：维护所有正在播放的效果，在效果层上每帧绘制。
-    /// 负责"真人皮肤按压 + Q弹回弹 + 波纹扩散"的视觉数学。
+    /// 负责"真人皮肤按压 + 果冻Q弹回弹 + 壁纸形变"的视觉数学。
     /// </summary>
     public sealed class RippleController
     {
         readonly List<Param> _cfg;
         readonly List<RippleEffect> _active = new List<RippleEffect>();
         readonly Random _rnd = new Random();
+
+        // 捕获下来的壁纸（物理像素）。点击时把这一小块壁纸做"凸透镜鼓起 + 果冻回弹"，
+        // 让壁纸真的被按变形，而不是在它上面画圆圈。
+        BitmapSource _desktop;
+        public double DpiX = 1.0, DpiY = 1.0;
+        public long LastWallpaperCaptureMs;
 
         // 悬停光晕跟随的最近鼠标位置
         public Native.POINT LastMouse;
@@ -118,8 +127,10 @@ namespace QElasticWallpaper.Core
                 double px = e.X - originX;
                 double py = e.Y - originY;
 
-                DrawPress(dc, px, py, p, e, baseColor, dark, bright, highlight, skinShading, globalOpacity);
-                DrawRings(dc, px, py, p, e, baseColor, edgeSoft, globalOpacity);
+                if (_desktop != null)
+                    DrawPressDeform(dc, px, py, p, e, baseColor, dark, bright, highlight, pressDepth, globalOpacity);
+                else
+                    DrawPressFallback(dc, px, py, p, e, baseColor, dark, bright, highlight, globalOpacity);
             }
 
             // 悬停果冻光晕（让壁纸"动起来"）：平滑跟随鼠标 + 轻微呼吸起伏
@@ -150,16 +161,77 @@ namespace QElasticWallpaper.Core
             }
         }
 
-        // ---------- 真人皮肤按压 + 果冻回弹 ----------
-        void DrawPress(DrawingContext dc, double px, double py, double p, RippleEffect e,
-            Color baseColor, Color dark, Color bright, double highlight, double skinShading, double globalOpacity)
+        // ---------- 壁纸"凸透镜鼓起 + 果冻回弹"（真·壁纸形变，不是画圆圈） ----------
+        void DrawPressDeform(DrawingContext dc, double px, double py, double p, RippleEffect e,
+            Color baseColor, Color dark, Color bright, double highlight, double pressDepth, double globalOpacity)
         {
-            // 平滑按压进入（快）→ 保持 → 平滑释放，释放瞬间果冻回弹
+            // 平滑按压进入（快）→ 保持 → 平滑释放
             double pressIn = SmoothStep(0, 0.14, p);
             double release = SmoothStep(0.32, 1.0, p);
             double press = pressIn * (1 - release);
 
-            // 果冻阻尼振荡：仅在按下后起振，做丝滑的"果冻Q弹"回弹
+            // 果冻阻尼振荡：仅按下后起振，做丝滑的"果冻Q弹"回弹（放大倍率来回起伏）
+            double jelly = Math.Max(0, p - 0.14);
+            double wobble = Math.Sin(2 * Math.PI * e.Bounce * 4 * jelly) * Math.Exp(-e.Damping * 4 * jelly);
+
+            double R = e.BaseRadius * (0.72 + 0.28 * press) * (1 + 0.18 * wobble);
+            double bulge = e.Intensity * press * 0.32 * (1 + 0.55 * wobble);   // 中心凸起(放大)强度
+            if (R <= 1.0 || bulge <= 0.001 || press <= 0.002) return;
+
+            // 用多圈同心采样做"中心放大、边缘还原"的平滑透镜变形（无缝衔接，不露圈）
+            double vsW = SystemParameters.VirtualScreenWidth;
+            double vsH = SystemParameters.VirtualScreenHeight;
+            var rect = new Rect(0, 0, vsW, vsH);
+            int N = 10;
+            for (int i = 0; i < N; i++)
+            {
+                double fr0 = (double)i / N, fr1 = (double)(i + 1) / N;
+                double fr = (fr0 + fr1) / 2;
+                double s = 1 + bulge * (1 - fr) * (1 - fr);
+                if (Math.Abs(s - 1) < 0.005) continue;
+
+                var ring = new CombinedGeometry(GeometryCombineMode.Exclude,
+                    new EllipseGeometry(new Point(px, py), R * fr1, R * fr1),
+                    new EllipseGeometry(new Point(px, py), R * fr0, R * fr0));
+                dc.PushClip(ring);
+                dc.PushTransform(ScaleAround(px, py, s));
+                dc.DrawImage(_desktop, rect);
+                dc.Pop();
+                dc.Pop();
+            }
+
+            // 按压阴影（中心略暗，模拟按下去的深度）+ 边缘被拉伸的柔光高光
+            double alpha = e.Intensity * globalOpacity * press * 0.55;
+            if (alpha > 0.003)
+            {
+                var c = new Point(px, py);
+                var sh = new RadialGradientBrush();
+                sh.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha), 0.0));
+                sh.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha * 0.25), 0.45));
+                sh.GradientStops.Add(new GradientStop(WithAlpha(dark, 0), 0.8));
+                sh.Freeze();
+                dc.DrawEllipse(sh, null, c, R * 0.8, R * 0.8);
+
+                if (highlight > 0.02)
+                {
+                    var hi = new RadialGradientBrush();
+                    hi.GradientStops.Add(new GradientStop(WithAlpha(bright, 0), 0.55));
+                    hi.GradientStops.Add(new GradientStop(WithAlpha(bright, alpha * highlight * 0.7), 0.88));
+                    hi.GradientStops.Add(new GradientStop(WithAlpha(bright, 0), 1.0));
+                    hi.Freeze();
+                    dc.DrawEllipse(hi, null, c, R, R);
+                }
+            }
+        }
+
+        // ---------- 兜底：万一壁纸没截到，画一个柔和的皮肤凹陷（同样无圆圈） ----------
+        void DrawPressFallback(DrawingContext dc, double px, double py, double p, RippleEffect e,
+            Color baseColor, Color dark, Color bright, double highlight, double globalOpacity)
+        {
+            double pressIn = SmoothStep(0, 0.14, p);
+            double release = SmoothStep(0.32, 1.0, p);
+            double press = pressIn * (1 - release);
+
             double jelly = Math.Max(0, p - 0.14);
             double wobble = 1 + 0.42 * e.Bounce *
                 Math.Sin(2 * Math.PI * e.Bounce * 5 * jelly) * Math.Exp(-e.Damping * 5 * jelly);
@@ -169,8 +241,6 @@ namespace QElasticWallpaper.Core
             if (R <= 0.5 || alpha <= 0.003) return;
 
             var c = new Point(px, py);
-
-            // 真人皮肤按压：中心凹陷阴影 → 皮肤色 → 边缘被拉伸的隆起高光 → 透明
             var b = new RadialGradientBrush();
             b.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha), 0.0));
             b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, alpha * 0.62), 0.50));
@@ -181,43 +251,47 @@ namespace QElasticWallpaper.Core
             dc.DrawEllipse(b, null, c, R, R);
         }
 
-        // ---------- 柔和水波（径向软带，不再是一圈圈白圈） ----------
-        void DrawRings(DrawingContext dc, double px, double py, double p, RippleEffect e,
-            Color baseColor, double edgeSoft, double globalOpacity)
+        /// <summary>把整个屏幕(壁纸)截下来，作为形变素材。失败则 _desktop 保持为空并走兜底。</summary>
+        public void CaptureWallpaper()
         {
-            var c = new Point(px, py);
-            int n = Math.Max(1, Math.Min(4, e.RippleCount));   // 太多环会乱，限制在 4 层内
-            for (int i = 0; i < n; i++)
+            try
             {
-                double delay = i * 0.16;
-                double t = Math.Clamp((p - delay) / 0.72, 0, 1);
-                if (t <= 0 || t >= 1) continue;
+                int w = (int)Math.Ceiling(SystemParameters.VirtualScreenWidth * DpiX);
+                int h = (int)Math.Ceiling(SystemParameters.VirtualScreenHeight * DpiY);
+                int x = (int)SystemParameters.VirtualScreenLeft;
+                int y = (int)SystemParameters.VirtualScreenTop;
+                if (w <= 0 || h <= 0) return;
 
-                double grow = SmoothStep(0, 1, t);
-                double R = e.BaseRadius * 0.7 + e.Growth * grow;
-                double a = e.Intensity * globalOpacity * (1 - grow) * (i == 0 ? 0.30 : 0.18);
-                if (R <= 0.5 || a <= 0.003) continue;
-
-                // 水波软带：径向渐变在半径 R（=椭圆边缘）处形成一条柔和的波峰
-                double W = Math.Max(e.RingThickness * 0.6, R * 0.14);
-                double u0 = Math.Clamp((R - W) / R, 0, 0.99);
-                var b = new RadialGradientBrush();
-                b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, 0), 0.0));
-                b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, 0), u0));
-                b.GradientStops.Add(new GradientStop(WithAlpha(baseColor, a), 1.0));
-                b.Freeze();
-                dc.DrawEllipse(b, null, c, R, R);
-
-                // 外缘羽化：再叠一层更大的淡波，让水波边缘柔和过渡
-                if (edgeSoft > 0.03)
+                using (var bmp = new Bitmap(w, h))
                 {
-                    var ob = new RadialGradientBrush();
-                    ob.GradientStops.Add(new GradientStop(WithAlpha(baseColor, a * 0.4), u0));
-                    ob.GradientStops.Add(new GradientStop(WithAlpha(baseColor, 0), 1.0));
-                    ob.Freeze();
-                    dc.DrawEllipse(ob, null, c, R * (1.15 + 0.25 * edgeSoft), R * (1.15 + 0.25 * edgeSoft));
+                    using (var g = Graphics.FromImage(bmp))
+                    {
+                        IntPtr hdc = g.GetHdc();
+                        try
+                        {
+                            IntPtr screen = Native.GetDC(IntPtr.Zero);
+                            try { Native.BitBlt(hdc, 0, 0, w, h, screen, x, y, Native.SRCCOPY); }
+                            finally { Native.ReleaseDC(IntPtr.Zero, screen); }
+                        }
+                        finally { g.ReleaseHdc(hdc); }
+                    }
+                    var src = Imaging.CreateBitmapSourceFromHBitmap(
+                        bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    src.Freeze();
+                    _desktop = src;
                 }
+                LastWallpaperCaptureMs = NowMs();
             }
+            catch { _desktop = null; }
+        }
+
+        static MatrixTransform ScaleAround(double cx, double cy, double s)
+        {
+            var m = Matrix.Identity;
+            m.Translate(-cx, -cy);
+            m.Scale(s, s);
+            m.Translate(cx, cy);
+            return new MatrixTransform(m);
         }
 
         // ---------- 颜色工具 ----------

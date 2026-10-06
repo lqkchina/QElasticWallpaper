@@ -20,6 +20,7 @@ namespace QElasticWallpaper.Core
         TrayHost _tray;
         SettingsWindow _settings;
         EventWaitHandle _showEvent;
+        System.Windows.Threading.DispatcherTimer _capTimer;
 
         const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string StartupValue = "QElasticWallpaper";
@@ -122,6 +123,15 @@ namespace QElasticWallpaper.Core
                 ErrorLog.Write("【启动】准备显示设置窗口");
                 ShowSettings();
             }
+
+            // 每 20 秒重截一次壁纸，这样用户换壁纸后形变素材也自动更新
+            _capTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(20)
+            };
+            _capTimer.Tick += (s, e) => _ctrl.CaptureWallpaper();
+            _capTimer.Start();
+
             ErrorLog.Write("【启动】初始化完成，程序进入运行状态");
         }
 
@@ -204,6 +214,7 @@ namespace QElasticWallpaper.Core
 
         public void Dispose()
         {
+            if (_capTimer != null) { try { _capTimer.Stop(); } catch { } _capTimer = null; }
             if (_showEvent != null) { try { _showEvent.Dispose(); } catch { } _showEvent = null; }
             _hook?.Dispose();
             _hook = null;

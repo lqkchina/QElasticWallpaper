@@ -87,6 +87,11 @@ namespace QElasticWallpaper.Core
             _dpiX = winDpi / 96.0;
             _dpiY = winDpi / 96.0;
 
+            // 告诉控制器本窗口的缩放，并立刻截一次壁纸做"形变"素材
+            _ctrl.DpiX = _dpiX;
+            _ctrl.DpiY = _dpiY;
+            _ctrl.CaptureWallpaper();
+
             if (_embedBelowIcons)
             {
                 // 首选：塞进桌面壁纸宿主，垫在图标下面

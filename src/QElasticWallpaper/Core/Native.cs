@@ -169,5 +169,18 @@ namespace QElasticWallpaper.Core
             }
             return IntPtr.Zero;
         }
+
+        // ---------- 屏幕捕获（把壁纸截下来，做"壁纸真的被按变形"的效果） ----------
+        public const int SRCCOPY = 0x00CC0020;
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        public static extern bool BitBlt(IntPtr hdcDest, int x, int y, int w, int h,
+            IntPtr hdcSrc, int x1, int y1, int rop);
     }
 }
