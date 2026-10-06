@@ -273,7 +273,7 @@ namespace QElasticWallpaper.Core
                         }
                         finally { g.ReleaseHdc(hdc); }
                     }
-                    var src = System.Windows.Media.Imaging.Imaging.CreateBitmapSourceFromHBitmap(
+                    var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
                         bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
                     src.Freeze();
                     _desktop = src;
