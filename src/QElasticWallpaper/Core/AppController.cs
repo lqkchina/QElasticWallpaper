@@ -56,6 +56,7 @@ namespace QElasticWallpaper.Core
                         new Action(() =>
                         {
                             var dip = overlay.PhysicalToDip(pt.X, pt.Y);
+                            _ctrl.CaptureWallpaper();      // 每次点击都先截当前壁纸，保证用的是最新壁纸
                             _ctrl.Spawn(dip.X, dip.Y);
                             if (Get("SoundEnabled").BoolValue)
                                 System.Media.SystemSounds.Asterisk.Play();

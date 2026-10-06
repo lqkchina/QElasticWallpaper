@@ -163,30 +163,29 @@ namespace QElasticWallpaper.Core
         void DrawPressDeform(DrawingContext dc, double px, double py, double p, RippleEffect e,
             Color baseColor, Color dark, Color bright, double highlight, double pressDepth, double globalOpacity)
         {
-            // 平滑按压进入（快）→ 保持 → 平滑释放
-            double pressIn = SmoothStep(0, 0.14, p);
-            double release = SmoothStep(0.32, 1.0, p);
-            double press = pressIn * (1 - release);
+            // 按下快速进入 + 果冻阻尼震荡（按下、回弹全程都是果冻Q弹）+ 释放淡出
+            double tIn = SmoothStep(0, 0.12, p);                 // 按下进入
+            double tJelly = Math.Max(0, p - 0.08);               // 起振点
+            double decay = Math.Exp(-e.Damping * 6 * tJelly);    // 果冻阻尼衰减
+            double wobble = decay * (Math.Sin(2 * Math.PI * e.Bounce * 4 * tJelly)
+                                     + 0.35 * Math.Sin(2 * Math.PI * e.Bounce * 9 * tJelly)); // 双频果冻，更Q
+            double fade = 1 - SmoothStep(0.70, 1.0, p);          // 释放淡出
 
-            // 果冻阻尼振荡：仅按下后起振，做丝滑的"果冻Q弹"回弹（放大倍率来回起伏）
-            double jelly = Math.Max(0, p - 0.14);
-            double wobble = Math.Sin(2 * Math.PI * e.Bounce * 4 * jelly) * Math.Exp(-e.Damping * 4 * jelly);
+            double bulge = e.Intensity * 0.46 * tIn * (1 + 0.62 * wobble) * fade; // 凸起(放大)强度
+            double R = e.BaseRadius * (0.8 + 0.2 * tIn) * (1 + 0.13 * wobble) * (0.6 + 0.4 * fade);
+            if (R <= 1.0 || bulge <= 0.001 || fade <= 0.002) return;
 
-            double R = e.BaseRadius * (0.72 + 0.28 * press) * (1 + 0.18 * wobble);
-            double bulge = e.Intensity * press * 0.32 * (1 + 0.55 * wobble);   // 中心凸起(放大)强度
-            if (R <= 1.0 || bulge <= 0.001 || press <= 0.002) return;
-
-            // 用多圈同心采样做"中心放大、边缘还原"的平滑透镜变形（无缝衔接，不露圈）
+            // 纯壁纸形变：中心放大(鼓起)、边缘还原，无缝衔接 —— 只有壁纸在动，没有任何圆圈/描边
             double vsW = SystemParameters.VirtualScreenWidth;
             double vsH = SystemParameters.VirtualScreenHeight;
             var rect = new Rect(0, 0, vsW, vsH);
-            int N = 10;
+            int N = 14;   // 圈数多一些，变形过渡更丝滑，不露圈
             for (int i = 0; i < N; i++)
             {
                 double fr0 = (double)i / N, fr1 = (double)(i + 1) / N;
                 double fr = (fr0 + fr1) / 2;
                 double s = 1 + bulge * (1 - fr) * (1 - fr);
-                if (Math.Abs(s - 1) < 0.005) continue;
+                if (Math.Abs(s - 1) < 0.004) continue;
 
                 var ring = new CombinedGeometry(GeometryCombineMode.Exclude,
                     new EllipseGeometry(new Point(px, py), R * fr1, R * fr1),
@@ -196,29 +195,6 @@ namespace QElasticWallpaper.Core
                 dc.DrawImage(_desktop, rect);
                 dc.Pop();
                 dc.Pop();
-            }
-
-            // 按压阴影（中心略暗，模拟按下去的深度）+ 边缘被拉伸的柔光高光
-            double alpha = e.Intensity * globalOpacity * press * 0.55;
-            if (alpha > 0.003)
-            {
-                var c = new Point(px, py);
-                var sh = new RadialGradientBrush();
-                sh.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha), 0.0));
-                sh.GradientStops.Add(new GradientStop(WithAlpha(dark, alpha * 0.25), 0.45));
-                sh.GradientStops.Add(new GradientStop(WithAlpha(dark, 0), 0.8));
-                sh.Freeze();
-                dc.DrawEllipse(sh, null, c, R * 0.8, R * 0.8);
-
-                if (highlight > 0.02)
-                {
-                    var hi = new RadialGradientBrush();
-                    hi.GradientStops.Add(new GradientStop(WithAlpha(bright, 0), 0.55));
-                    hi.GradientStops.Add(new GradientStop(WithAlpha(bright, alpha * highlight * 0.7), 0.88));
-                    hi.GradientStops.Add(new GradientStop(WithAlpha(bright, 0), 1.0));
-                    hi.Freeze();
-                    dc.DrawEllipse(hi, null, c, R, R);
-                }
             }
         }
 
