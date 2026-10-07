@@ -79,78 +79,8 @@ namespace QElasticWallpaper.Core
             });
             Add(list, new Param
             {
-                Key = "RippleCount", Label = "波纹层数", Unit = "层", Kind = ParamKind.Slider, Min = 1, Max = 16, Value = 3,
-                Description = "一次点击向外扩散的柔和水波带数量，越多越饱满（建议 2~4 最干净）。"
-            });
-            Add(list, new Param
-            {
-                Key = "BaseRadius", Label = "按压基准半径", Unit = "px", Kind = ParamKind.Slider, Min = 15, Max = 400, Value = 55,
-                Description = "手指按压形成的初始皮肤凹陷大小。"
-            });
-            Add(list, new Param
-            {
-                Key = "RadiusGrowth", Label = "波纹扩散距离", Unit = "px", Kind = ParamKind.Slider, Min = 0, Max = 1200, Value = 320,
-                Description = "水波从中心向外扩散的行程长度，越大波及范围越广。"
-            });
-            Add(list, new Param
-            {
-                Key = "RingThickness", Label = "波纹粗细", Unit = "px", Kind = ParamKind.Slider, Min = 1, Max = 60, Value = 16,
-                Description = "水波带的宽度，越大越柔和越像水波。"
-            });
-            Add(list, new Param
-            {
-                Key = "Intensity", Label = "整体强度", Unit = "％", Kind = ParamKind.Slider, Min = 0.05, Max = 1, Value = 0.9,
-                Description = "所有效果的最大透明度/浓度，越大越明显。"
-            });
-            Add(list, new Param
-            {
-                Key = "Bounce", Label = "Q弹回弹次数", Kind = ParamKind.Slider, Min = 0, Max = 12, Value = 4,
-                Description = "皮肤按压后回弹振荡的次数，越大越'果冻感'。设为 0 则只压不回弹。"
-            });
-            Add(list, new Param
-            {
-                Key = "Damping", Label = "回弹衰减", Kind = ParamKind.Slider, Min = 0.2, Max = 8, Value = 1.8,
-                Description = "振荡衰减速度。越小回弹越久越软；越大回弹越快越硬。"
-            });
-            Add(list, new Param
-            {
-                Key = "Duration", Label = "单次动画时长", Unit = "ms", Kind = ParamKind.Slider, Min = 150, Max = 4000, Value = 1200,
-                Description = "一次按压从出现到完全消散的总时间。"
-            });
-            Add(list, new Param
-            {
-                Key = "PressDepth", Label = "按压凹陷深度", Unit = "％", Kind = ParamKind.Slider, Min = 0, Max = 1, Value = 0.6,
-                Description = "中心暗色凹陷的深浅，模拟手指按进皮肤的阴影。"
-            });
-            Add(list, new Param
-            {
-                Key = "SkinShading", Label = "真人皮肤感", Unit = "％", Kind = ParamKind.Slider, Min = 0, Max = 1, Value = 0.7,
-                Description = "0 = 纯色扁平波纹；1 = 皮肤般的柔光渐变与高光，更像真人皮肤按压。"
-            });
-            Add(list, new Param
-            {
-                Key = "Highlight", Label = "高光强度", Unit = "％", Kind = ParamKind.Slider, Min = 0, Max = 1, Value = 0.55,
-                Description = "按压边缘被拉伸皮肤的亮圈强度。"
-            });
-            Add(list, new Param
-            {
-                Key = "EdgeSoftness", Label = "边缘柔化", Unit = "％", Kind = ParamKind.Slider, Min = 0, Max = 1, Value = 0.7,
-                Description = "水波边缘的羽化程度，越大越柔和。"
-            });
-            Add(list, new Param
-            {
                 Key = "GlobalOpacity", Label = "整体透明度", Unit = "％", Kind = ParamKind.Slider, Min = 0.05, Max = 1, Value = 1.0,
                 Description = "整个效果层的不透明度。"
-            });
-            Add(list, new Param
-            {
-                Key = "RandomVariation", Label = "随机波动", Unit = "％", Kind = ParamKind.Slider, Min = 0, Max = 0.8, Value = 0.2,
-                Description = "每次点击在半径/强度/时长上加一点随机差异，避免千篇一律。"
-            });
-            Add(list, new Param
-            {
-                Key = "MaxEffects", Label = "同屏效果上限", Kind = ParamKind.Slider, Min = 1, Max = 100, Value = 30,
-                Description = "快速连续点击时，最多同时存在的效果数量，防卡顿。"
             });
             Add(list, new Param
             {
@@ -180,27 +110,27 @@ namespace QElasticWallpaper.Core
             });
             Add(list, new Param
             {
-                Key = "JellyStiffness", Label = "弹簧刚度(回弹力度)", Kind = ParamKind.Slider, Min = 20, Max = 500, Value = 220,
+                Key = "JellyStiffness", Label = "弹簧刚度(回弹力度)", Kind = ParamKind.Slider, Min = 20, Max = 500, Value = 300,
                 Description = "回弹力度，越大松手后弹得越猛。"
             });
             Add(list, new Param
             {
-                Key = "JellyDamping", Label = "阻尼(抑制震荡)", Kind = ParamKind.Slider, Min = 0.02, Max = 0.9, Value = 0.28,
+                Key = "JellyDamping", Label = "阻尼(抑制震荡)", Kind = ParamKind.Slider, Min = 0.02, Max = 0.9, Value = 0.35,
                 Description = "越小回弹越久越Q；越大越快停下来。"
             });
             Add(list, new Param
             {
-                Key = "JellyRadius", Label = "拖拽影响半径", Unit = "px", Kind = ParamKind.Slider, Min = 30, Max = 600, Value = 180,
+                Key = "JellyRadius", Label = "拖拽影响半径", Unit = "px", Kind = ParamKind.Slider, Min = 30, Max = 600, Value = 200,
                 Description = "按住拖拽时影响壁纸的范围。"
             });
             Add(list, new Param
             {
-                Key = "JellyStrength", Label = "拖拽强度系数", Kind = ParamKind.Slider, Min = 0.05, Max = 1, Value = 0.6,
+                Key = "JellyStrength", Label = "拖拽强度系数", Kind = ParamKind.Slider, Min = 0.05, Max = 1, Value = 0.7,
                 Description = "拖拽变形幅度，越大壁纸弯得越明显。"
             });
             Add(list, new Param
             {
-                Key = "JellyMaxDisp", Label = "质点最大位移", Unit = "px", Kind = ParamKind.Slider, Min = 4, Max = 80, Value = 24,
+                Key = "JellyMaxDisp", Label = "质点最大位移", Unit = "px", Kind = ParamKind.Slider, Min = 4, Max = 80, Value = 26,
                 Description = "壁纸形变的最大偏移，防止极端扭曲。"
             });
             Add(list, new Param
@@ -242,43 +172,27 @@ namespace QElasticWallpaper.Core
                 ["默认最优（推荐）"] = new Dictionary<string, double>
                 {
                     ["Enabled"] = 1, ["TriggerMode"] = 0,
-                    ["RippleCount"] = 3, ["BaseRadius"] = 55, ["RadiusGrowth"] = 320, ["RingThickness"] = 16,
-                    ["Intensity"] = 0.9, ["Bounce"] = 4, ["Damping"] = 1.8, ["Duration"] = 1200,
-                    ["PressDepth"] = 0.6, ["SkinShading"] = 0.7, ["Highlight"] = 0.55, ["EdgeSoftness"] = 0.7,
-                    ["GlobalOpacity"] = 1.0, ["RandomVariation"] = 0.2, ["MaxEffects"] = 30, ["TargetFps"] = 60,
+                    ["GlobalOpacity"] = 1.0, ["TargetFps"] = 60,
+                    ["JellyGrid"] = 24, ["JellyStiffness"] = 300, ["JellyDamping"] = 0.35,
+                    ["JellyRadius"] = 200, ["JellyStrength"] = 0.7, ["JellyMaxDisp"] = 26,
                     ["HoverGlow"] = 0, ["HoverGlowRadius"] = 60, ["HoverGlowIntensity"] = 0.12,
-                    ["JellyGrid"] = 24, ["JellyStiffness"] = 220, ["JellyDamping"] = 0.28,
-                    ["JellyRadius"] = 180, ["JellyStrength"] = 0.6, ["JellyMaxDisp"] = 24,
                     ["SoundEnabled"] = 0, ["SoundVolume"] = 0.5,
                     ["OverlayLayer"] = 0, ["LaunchAtStartup"] = 0, ["StartMinimized"] = 0,
                 },
-                ["极致Q弹果冻"] = new Dictionary<string, double>
+                ["猛烈Q弹"] = new Dictionary<string, double>
                 {
-                    ["RippleCount"] = 8, ["BaseRadius"] = 55, ["RadiusGrowth"] = 420, ["RingThickness"] = 9,
-                    ["Intensity"] = 0.95, ["Bounce"] = 6, ["Damping"] = 1.2, ["Duration"] = 1500,
-                    ["PressDepth"] = 0.75, ["SkinShading"] = 0.85, ["Highlight"] = 0.7, ["EdgeSoftness"] = 0.7,
-                    ["RandomVariation"] = 0.35, ["MaxEffects"] = 40,
+                    ["JellyGrid"] = 22, ["JellyStiffness"] = 400, ["JellyDamping"] = 0.20,
+                    ["JellyRadius"] = 240, ["JellyStrength"] = 0.9, ["JellyMaxDisp"] = 34,
                 },
-                ["柔和淡雅"] = new Dictionary<string, double>
+                ["柔和微弹"] = new Dictionary<string, double>
                 {
-                    ["RippleCount"] = 3, ["BaseRadius"] = 60, ["RadiusGrowth"] = 220, ["RingThickness"] = 3,
-                    ["Intensity"] = 0.5, ["Bounce"] = 2, ["Damping"] = 3.2, ["Duration"] = 800,
-                    ["PressDepth"] = 0.35, ["SkinShading"] = 0.5, ["Highlight"] = 0.3, ["EdgeSoftness"] = 0.8,
-                    ["GlobalOpacity"] = 0.7, ["RandomVariation"] = 0.1,
+                    ["JellyGrid"] = 30, ["JellyStiffness"] = 180, ["JellyDamping"] = 0.55,
+                    ["JellyRadius"] = 150, ["JellyStrength"] = 0.45, ["JellyMaxDisp"] = 16,
                 },
-                ["鲜艳活力"] = new Dictionary<string, double>
+                ["大幅波浪"] = new Dictionary<string, double>
                 {
-                    ["RippleCount"] = 6, ["BaseRadius"] = 38, ["RadiusGrowth"] = 360, ["RingThickness"] = 8,
-                    ["Intensity"] = 0.9, ["Bounce"] = 4, ["Damping"] = 2.0, ["Duration"] = 1000,
-                    ["PressDepth"] = 0.7, ["SkinShading"] = 0.6, ["Highlight"] = 0.6, ["EdgeSoftness"] = 0.35,
-                    ["RandomVariation"] = 0.25, ["MaxEffects"] = 35,
-                },
-                ["极简克制"] = new Dictionary<string, double>
-                {
-                    ["RippleCount"] = 1, ["BaseRadius"] = 80, ["RadiusGrowth"] = 160, ["RingThickness"] = 2,
-                    ["Intensity"] = 0.4, ["Bounce"] = 1, ["Damping"] = 3.5, ["Duration"] = 650,
-                    ["PressDepth"] = 0.3, ["SkinShading"] = 0.4, ["Highlight"] = 0.25, ["EdgeSoftness"] = 0.9,
-                    ["GlobalOpacity"] = 0.65, ["RandomVariation"] = 0.05, ["MaxEffects"] = 12,
+                    ["JellyGrid"] = 26, ["JellyStiffness"] = 260, ["JellyDamping"] = 0.30,
+                    ["JellyRadius"] = 320, ["JellyStrength"] = 0.8, ["JellyMaxDisp"] = 38,
                 },
             };
 
