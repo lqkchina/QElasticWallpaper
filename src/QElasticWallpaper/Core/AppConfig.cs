@@ -172,6 +172,37 @@ namespace QElasticWallpaper.Core
                 Key = "HoverGlowIntensity", Label = "光晕强度", Unit = "％", Kind = ParamKind.Slider, Min = 0.03, Max = 0.5, Value = 0.12,
                 Description = "悬停光晕的透明度。"
             });
+            // ---- 果冻物理参数（参考"果冻弹性壁纸"：把壁纸做成弹簧质点网格，按住拖拽形变，松手回弹） ----
+            Add(list, new Param
+            {
+                Key = "JellyGrid", Label = "果冻网格尺寸", Unit = "px", Kind = ParamKind.Slider, Min = 12, Max = 120, Value = 24,
+                Description = "壁纸被切成多细的网格来变形，越小越细腻、越耗性能。"
+            });
+            Add(list, new Param
+            {
+                Key = "JellyStiffness", Label = "弹簧刚度(回弹力度)", Kind = ParamKind.Slider, Min = 20, Max = 500, Value = 220,
+                Description = "回弹力度，越大松手后弹得越猛。"
+            });
+            Add(list, new Param
+            {
+                Key = "JellyDamping", Label = "阻尼(抑制震荡)", Kind = ParamKind.Slider, Min = 0.02, Max = 0.9, Value = 0.28,
+                Description = "越小回弹越久越Q；越大越快停下来。"
+            });
+            Add(list, new Param
+            {
+                Key = "JellyRadius", Label = "拖拽影响半径", Unit = "px", Kind = ParamKind.Slider, Min = 30, Max = 600, Value = 180,
+                Description = "按住拖拽时影响壁纸的范围。"
+            });
+            Add(list, new Param
+            {
+                Key = "JellyStrength", Label = "拖拽强度系数", Kind = ParamKind.Slider, Min = 0.05, Max = 1, Value = 0.6,
+                Description = "拖拽变形幅度，越大壁纸弯得越明显。"
+            });
+            Add(list, new Param
+            {
+                Key = "JellyMaxDisp", Label = "质点最大位移", Unit = "px", Kind = ParamKind.Slider, Min = 4, Max = 80, Value = 24,
+                Description = "壁纸形变的最大偏移，防止极端扭曲。"
+            });
             Add(list, new Param
             {
                 Key = "SoundEnabled", Label = "按压音效", Kind = ParamKind.Bool, BoolValue = false,
@@ -216,6 +247,8 @@ namespace QElasticWallpaper.Core
                     ["PressDepth"] = 0.6, ["SkinShading"] = 0.7, ["Highlight"] = 0.55, ["EdgeSoftness"] = 0.7,
                     ["GlobalOpacity"] = 1.0, ["RandomVariation"] = 0.2, ["MaxEffects"] = 30, ["TargetFps"] = 60,
                     ["HoverGlow"] = 0, ["HoverGlowRadius"] = 60, ["HoverGlowIntensity"] = 0.12,
+                    ["JellyGrid"] = 24, ["JellyStiffness"] = 220, ["JellyDamping"] = 0.28,
+                    ["JellyRadius"] = 180, ["JellyStrength"] = 0.6, ["JellyMaxDisp"] = 24,
                     ["SoundEnabled"] = 0, ["SoundVolume"] = 0.5,
                     ["OverlayLayer"] = 0, ["LaunchAtStartup"] = 0, ["StartMinimized"] = 0,
                 },
