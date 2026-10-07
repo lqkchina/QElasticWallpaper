@@ -15,7 +15,6 @@ namespace QElasticWallpaper.Core
     public sealed class RippleController
     {
         readonly List<Param> _cfg;
-        readonly Random _rnd = new Random();
 
         // ---- 壁纸素材（DIP 对齐，BGRA 像素）----
         BitmapSource _desktop;      // 物理像素截图
@@ -198,7 +197,7 @@ namespace QElasticWallpaper.Core
             dt = Math.Clamp(dt, 0.008, 0.05);
 
             bool btnDown = B("Enabled") && HasMouse &&
-                           (System.Windows.Forms.Control.MouseButtons & System.Windows.Forms.MouseButtons.Left) != 0;
+                           (Native.GetAsyncKeyState(Native.VK_LBUTTON) & 0x8000) != 0;
             double R = P("JellyRadius");
             double strength = P("JellyStrength");
             double maxDisp = P("JellyMaxDisp");

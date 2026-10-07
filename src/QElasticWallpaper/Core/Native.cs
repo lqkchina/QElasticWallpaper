@@ -63,6 +63,38 @@ namespace QElasticWallpaper.Core
         [DllImport("user32.dll")]
         public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
+        // ---------- 窗口扩展样式（鼠标穿透用） ----------
+        public const int GWL_EXSTYLE = -20;
+        public const int WS_EX_TRANSPARENT = 0x00000020;
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
+        static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+        [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
+        static extern IntPtr GetWindowLongPtr32(IntPtr hWnd, int nIndex);
+
+        /// <summary>取窗口扩展样式（32/64 位通用）。</summary>
+        public static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
+        {
+            return IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : GetWindowLongPtr32(hWnd, nIndex);
+        }
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
+        static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+        [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
+        static extern IntPtr SetWindowLongPtr32(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        /// <summary>设置窗口扩展样式（32/64 位通用）。</summary>
+        public static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+        {
+            return IntPtr.Size == 8 ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong) : SetWindowLongPtr32(hWnd, nIndex, dwNewLong);
+        }
+
+        // ---------- 全局按键状态（判断左键是否按住，纯全局、不依赖 WinForms/WPF 焦点） ----------
+        public const int VK_LBUTTON = 0x01;
+
+        [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(int vKey);
+
         public const uint GW_CHILD = 5;
         public const uint GW_HWNDNEXT = 2;
 

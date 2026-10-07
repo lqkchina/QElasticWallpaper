@@ -80,6 +80,17 @@ namespace QElasticWallpaper.Core
             if (hwnd == IntPtr.Zero) return;
             _hwnd = hwnd;
 
+            // Win32 层鼠标穿透：这个透明层绝不拦截任何鼠标消息。
+            // 只设 WPF 的 IsHitTestVisible=false 不够，系统层仍会吞掉右键/图标点击，
+            // 加上 WS_EX_TRANSPARENT 后点击、右键、拖拽全部直接穿透给下面的桌面/图标。
+            try
+            {
+                int ex = Native.GetWindowLongPtr(hwnd, Native.GWL_EXSTYLE).ToInt32();
+                ex |= Native.WS_EX_TRANSPARENT;
+                Native.SetWindowLongPtr(hwnd, Native.GWL_EXSTYLE, new IntPtr(ex));
+            }
+            catch { }
+
             // 缓存本窗口 DPI，供 PhysicalToDip 从任意线程安全调用。
             // PixelsPerDip = 窗口DPI / 96；取不到时按 96（100% 缩放）处理。
             uint winDpi = Native.GetDpiForWindow(hwnd);
