@@ -144,7 +144,7 @@ namespace QElasticWallpaper.Core
                         _nodeY[idx] = j * _cell;
                     }
                 _sheetReady = true;
-                _lastFrameMs = NowMs();
+                _lastFrameMs = (long)NowMs();
             }
             catch { _sheetReady = false; }
         }
@@ -194,7 +194,7 @@ namespace QElasticWallpaper.Core
         void PhysicsStep(double nowMs)
         {
             double dt = _lastFrameMs <= 0 ? 0.016 : (nowMs - _lastFrameMs) / 1000.0;
-            _lastFrameMs = nowMs;
+            _lastFrameMs = (long)nowMs;
             dt = Math.Clamp(dt, 0.008, 0.05);
 
             bool btnDown = B("Enabled") && HasMouse &&

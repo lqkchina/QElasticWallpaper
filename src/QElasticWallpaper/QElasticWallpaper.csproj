@@ -11,7 +11,7 @@
     <AssemblyName>QElasticWallpaper</AssemblyName>
     <RootNamespace>QElasticWallpaper</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.4.0</Version>
+    <Version>1.4.1</Version>
     <!-- 单文件发布时把这些去掉更干净；开发调试保留即可 -->
     <DebugType>embedded</DebugType>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
