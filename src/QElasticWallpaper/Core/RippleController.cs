@@ -83,10 +83,10 @@ namespace QElasticWallpaper.Core
             => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 
         /// <summary>
-        /// 把壁纸截下来作为形变素材。
-        /// 首选只截"桌面壁纸宿主层(WorkerW)"，得到的是【纯壁纸】——
-        /// 不含我们的效果层、也不含打开的窗口，所以点击后不会出现"图中图中图"的套娃。
-        /// WorkerW 取不到时（个别第三方壁纸），退化为截整屏。
+        /// 把壁纸做成形变素材。
+        /// 首选【直接读壁纸图片文件】并按屏幕"填充"绘制 —— 素材是纯壁纸图片，
+        /// 不含我们的效果层、也不含打开的窗口：既不"图中图中图"，也不会黑块。
+        /// 读不到壁纸文件时（纯色/第三方壁纸软件）退回全屏截图兜底。
         /// 只更新像素；果冻网格只在首次/分辨率或网格尺寸变化时才重建，
         /// 正在进行的震荡不会被打断，多点按压也能在同一张网格上叠加、互相影响。
         /// </summary>
@@ -94,68 +94,81 @@ namespace QElasticWallpaper.Core
         {
             try
             {
+                if (TryLoadWallpaperFile())
+                {
+                    LastWallpaperCaptureMs = (long)NowMs();
+                    UpdateSheetPixels();
+                    return;
+                }
+
+                // 兜底：全屏截图（含窗口，但不至于黑块）
                 int w = (int)Math.Ceiling(SystemParameters.VirtualScreenWidth * DpiX);
                 int h = (int)Math.Ceiling(SystemParameters.VirtualScreenHeight * DpiY);
                 if (w <= 0 || h <= 0) return;
-
-                IntPtr srcDc = IntPtr.Zero;
-                IntPtr srcHwnd = IntPtr.Zero;
-                int srcW = w, srcH = h;
-                int srcX = 0, srcY = 0;
-                bool fromWallpaperLayer = false;
-
-                IntPtr workerW = Native.FindWorkerW();
-                if (workerW != IntPtr.Zero)
+                IntPtr screen = Native.GetDC(IntPtr.Zero);
+                if (screen == IntPtr.Zero) return;
+                try
                 {
-                    Native.RECT rc;
-                    if (Native.GetClientRect(workerW, out rc))
+                    using (var bmp = new System.Drawing.Bitmap(w, h))
                     {
-                        int cw = rc.Right - rc.Left, ch = rc.Bottom - rc.Top;
-                        if (cw > 0 && ch > 0)
+                        using (var g = System.Drawing.Graphics.FromImage(bmp))
                         {
-                            srcDc = Native.GetDC(workerW);
-                            if (srcDc != IntPtr.Zero)
-                            {
-                                srcHwnd = workerW; srcW = cw; srcH = ch; srcX = 0; srcY = 0;
-                                fromWallpaperLayer = true;
-                            }
+                            IntPtr hdc = g.GetHdc();
+                            try { Native.BitBlt(hdc, 0, 0, w, h, screen,
+                                (int)SystemParameters.VirtualScreenLeft, (int)SystemParameters.VirtualScreenTop, Native.SRCCOPY); }
+                            finally { g.ReleaseHdc(hdc); }
                         }
+                        var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                            bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                        src.Freeze();
+                        _desktop = src;
                     }
                 }
-
-                if (!fromWallpaperLayer)
-                {
-                    srcDc = Native.GetDC(IntPtr.Zero);
-                    srcHwnd = IntPtr.Zero;
-                    srcW = w; srcH = h;
-                    srcX = (int)SystemParameters.VirtualScreenLeft;
-                    srcY = (int)SystemParameters.VirtualScreenTop;
-                }
-
-                using (var bmp = new System.Drawing.Bitmap(srcW, srcH))
-                {
-                    using (var g = System.Drawing.Graphics.FromImage(bmp))
-                    {
-                        IntPtr hdc = g.GetHdc();
-                        try
-                        {
-                            Native.BitBlt(hdc, 0, 0, srcW, srcH, srcDc, srcX, srcY, Native.SRCCOPY);
-                        }
-                        finally
-                        {
-                            g.ReleaseHdc(hdc);
-                            if (srcDc != IntPtr.Zero) Native.ReleaseDC(srcHwnd, srcDc);
-                        }
-                    }
-                    var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                        bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
-                    src.Freeze();
-                    _desktop = src;
-                }
+                finally { Native.ReleaseDC(IntPtr.Zero, screen); }
                 LastWallpaperCaptureMs = (long)NowMs();
                 UpdateSheetPixels();
             }
             catch { _desktop = null; }
+        }
+
+        /// <summary>直接读当前壁纸图片文件，按屏幕"填充"画到屏幕大小。成功返回 true。</summary>
+        bool TryLoadWallpaperFile()
+        {
+            try
+            {
+                string path = Native.GetWallpaperPath();
+                if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return false;
+
+                int w = (int)Math.Ceiling(SystemParameters.VirtualScreenWidth * DpiX);
+                int h = (int)Math.Ceiling(SystemParameters.VirtualScreenHeight * DpiY);
+                if (w <= 0 || h <= 0) return false;
+
+                using (var src = new System.Drawing.Bitmap(path))
+                {
+                    if (src.Width <= 0 || src.Height <= 0) return false;
+                    using (var canvas = new System.Drawing.Bitmap(w, h))
+                    {
+                        using (var g = System.Drawing.Graphics.FromImage(canvas))
+                        {
+                            g.Clear(System.Drawing.Color.Black);
+                            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                            // 填充(Fill)：等比缩放、居中裁剪铺满屏幕
+                            float scale = Math.Max((float)w / src.Width, (float)h / src.Height);
+                            int dw = (int)Math.Ceiling(src.Width * scale);
+                            int dh = (int)Math.Ceiling(src.Height * scale);
+                            int dx = (w - dw) / 2, dy = (h - dh) / 2;
+                            g.DrawImage(src, dx, dy, dw, dh);
+                        }
+                        var bs = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                            canvas.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty,
+                            System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                        bs.Freeze();
+                        _desktop = bs;
+                    }
+                }
+                return true;
+            }
+            catch { return false; }
         }
 
         /// <summary>把壁纸缩放成 DIP 像素；网格只在必要时重建，保留正在进行的位移。</summary>
