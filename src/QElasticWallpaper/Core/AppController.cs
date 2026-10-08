@@ -56,7 +56,8 @@ namespace QElasticWallpaper.Core
                         new Action(() =>
                         {
                             var dip = overlay.PhysicalToDip(pt.X, pt.Y);
-                            _ctrl.CaptureWallpaper();      // 每次点击都先截当前壁纸，保证用的是最新壁纸
+                            // 点击不再重截/重建网格：多点按压在同一张果冻网格上叠加，
+                            // 丝滑过渡、互相影响；壁纸更新交给下面的定时检测。
                             _ctrl.Spawn(dip.X, dip.Y);
                             if (Get("SoundEnabled").BoolValue)
                                 System.Media.SystemSounds.Asterisk.Play();
@@ -125,12 +126,13 @@ namespace QElasticWallpaper.Core
                 ShowSettings();
             }
 
-            // 每 20 秒重截一次壁纸，这样用户换壁纸后形变素材也自动更新
+            // 每 2 秒检测一次壁纸是否更换：换壁纸才重新截屏更新素材（不打断正在进行的震荡），
+            // 平时几乎零开销。这样换壁纸后，正在震荡的区域也能很快跟上新壁纸。
             _capTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(20)
+                Interval = TimeSpan.FromSeconds(2)
             };
-            _capTimer.Tick += (s, e) => _ctrl.CaptureWallpaper();
+            _capTimer.Tick += (s, e) => _ctrl.RefreshWallpaper();
             _capTimer.Start();
 
             ErrorLog.Write("【启动】初始化完成，程序进入运行状态");

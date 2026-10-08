@@ -118,6 +118,25 @@ namespace QElasticWallpaper.Core
         [DllImport("user32.dll")]
         public static extern uint GetDpiForWindow(IntPtr hwnd);
 
+        // ---------- 当前壁纸文件路径（用于检测用户是否换了壁纸） ----------
+        const uint SPI_GETDESKWALLPAPER = 0x0073;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern bool SystemParametersInfo(uint uiAction, uint uiParam, StringBuilder pvParam, uint fWinIni);
+
+        /// <summary>取当前壁纸文件路径；取不到（纯色/聚焦等）返回空串。</summary>
+        public static string GetWallpaperPath()
+        {
+            try
+            {
+                var sb = new StringBuilder(512);
+                if (SystemParametersInfo(SPI_GETDESKWALLPAPER, (uint)sb.Capacity, sb, 0))
+                    return sb.ToString();
+            }
+            catch { }
+            return string.Empty;
+        }
+
         // ---------- 消息循环（低层钩子所在线程必须跑一个消息循环才能收到回调） ----------
         [StructLayout(LayoutKind.Sequential)]
         public struct MSG

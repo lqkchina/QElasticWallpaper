@@ -31,6 +31,10 @@ namespace QElasticWallpaper.Core
         double[] _vx, _vy;          // 速度
         long _lastFrameMs;
 
+        // ---- 壁纸更换检测（避免每次点击都重截、也能及时跟上新壁纸）----
+        string _wpPath = "";
+        long _wpMtime;
+
         // ---- 渲染缓冲 ----
         WriteableBitmap _patch;
         byte[] _patchPix;
@@ -78,7 +82,11 @@ namespace QElasticWallpaper.Core
         public static double NowMs()
             => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 
-        /// <summary>把屏幕截下来作为壁纸素材，并重建果冻网格。</summary>
+        /// <summary>
+        /// 把屏幕截下来作为壁纸素材（换壁纸时由定时检测调用）。
+        /// 只更新像素；果冻网格只在首次/分辨率或网格尺寸变化时才重建，
+        /// 正在进行的震荡不会被打断，多点按压也能在同一张网格上叠加、互相影响。
+        /// </summary>
         public void CaptureWallpaper()
         {
             try
@@ -108,13 +116,13 @@ namespace QElasticWallpaper.Core
                     _desktop = src;
                 }
                 LastWallpaperCaptureMs = (long)NowMs();
-                BuildSheet();
+                UpdateSheetPixels();
             }
             catch { _desktop = null; }
         }
 
-        /// <summary>把壁纸缩放成 DIP 尺寸并拷贝成像素数组，初始化果冻网格。</summary>
-        void BuildSheet()
+        /// <summary>把壁纸缩放成 DIP 像素；网格只在必要时重建，保留正在进行的位移。</summary>
+        void UpdateSheetPixels()
         {
             try
             {
@@ -124,13 +132,27 @@ namespace QElasticWallpaper.Core
                 int sh = (int)Math.Round(tb.Height);
                 if (sw <= 8 || sh <= 8) return;
 
-                _src = new byte[sw * sh * 4];
-                tb.CopyPixels(_src, sw * 4, 0);
-                _sw = sw; _sh = sh;
+                var px = new byte[sw * sh * 4];
+                tb.CopyPixels(px, sw * 4, 0);
+                _src = px; _sw = sw; _sh = sh;
 
                 _cell = Math.Max(12, P("JellyGrid"));
-                _gw = (int)(sw / _cell) + 2;
-                _gh = (int)(sh / _cell) + 2;
+                int gw = (int)(sw / _cell) + 2;
+                int gh = (int)(sh / _cell) + 2;
+                if (!_sheetReady || gw != _gw || gh != _gh)
+                    BuildSheet();   // 首次或网格尺寸变了才重建（重建会清零位移）
+            }
+            catch { }
+        }
+
+        /// <summary>用当前 _sw/_sh/_cell 重建果冻网格（位移清零）。</summary>
+        void BuildSheet()
+        {
+            try
+            {
+                if (_sw <= 8 || _sh <= 8) return;
+                _gw = (int)(_sw / _cell) + 2;
+                _gh = (int)(_sh / _cell) + 2;
                 int n = _gw * _gh;
                 _nodeX = new double[n]; _nodeY = new double[n];
                 _dx = new double[n]; _dy = new double[n];
@@ -146,6 +168,28 @@ namespace QElasticWallpaper.Core
                 _lastFrameMs = (long)NowMs();
             }
             catch { _sheetReady = false; }
+        }
+
+        /// <summary>
+        /// 定期调用：检测用户是否换了壁纸。只有检测到变化才重新截屏更新素材，
+        /// 平时几乎零开销，且不打断正在进行的震荡。
+        /// </summary>
+        public void RefreshWallpaper()
+        {
+            try
+            {
+                string path = Native.GetWallpaperPath();
+                long mt = 0;
+                if (!string.IsNullOrEmpty(path))
+                {
+                    try { mt = System.IO.File.GetLastWriteTimeUtc(path).Ticks; }
+                    catch { }
+                }
+                if (path == _wpPath && mt == _wpMtime) return; // 没换壁纸
+                _wpPath = path; _wpMtime = mt;
+                CaptureWallpaper();
+            }
+            catch { }
         }
 
         /// <summary>
