@@ -19,6 +19,9 @@ namespace QElasticWallpaper.Core
         public struct POINT { public int X; public int Y; }
 
         [StructLayout(LayoutKind.Sequential)]
+        public struct RECT { public int Left, Top, Right, Bottom; }
+
+        [StructLayout(LayoutKind.Sequential)]
         public struct MSLLHOOKSTRUCT
         {
             public POINT pt;
@@ -233,5 +236,8 @@ namespace QElasticWallpaper.Core
         [DllImport("gdi32.dll")]
         public static extern bool BitBlt(IntPtr hdcDest, int x, int y, int w, int h,
             IntPtr hdcSrc, int x1, int y1, int rop);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
     }
 }

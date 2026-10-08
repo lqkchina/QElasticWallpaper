@@ -83,7 +83,10 @@ namespace QElasticWallpaper.Core
             => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 
         /// <summary>
-        /// 把屏幕截下来作为壁纸素材（换壁纸时由定时检测调用）。
+        /// 把壁纸截下来作为形变素材。
+        /// 首选只截"桌面壁纸宿主层(WorkerW)"，得到的是【纯壁纸】——
+        /// 不含我们的效果层、也不含打开的窗口，所以点击后不会出现"图中图中图"的套娃。
+        /// WorkerW 取不到时（个别第三方壁纸），退化为截整屏。
         /// 只更新像素；果冻网格只在首次/分辨率或网格尺寸变化时才重建，
         /// 正在进行的震荡不会被打断，多点按压也能在同一张网格上叠加、互相影响。
         /// </summary>
@@ -93,22 +96,56 @@ namespace QElasticWallpaper.Core
             {
                 int w = (int)Math.Ceiling(SystemParameters.VirtualScreenWidth * DpiX);
                 int h = (int)Math.Ceiling(SystemParameters.VirtualScreenHeight * DpiY);
-                int x = (int)SystemParameters.VirtualScreenLeft;
-                int y = (int)SystemParameters.VirtualScreenTop;
                 if (w <= 0 || h <= 0) return;
 
-                using (var bmp = new System.Drawing.Bitmap(w, h))
+                IntPtr srcDc = IntPtr.Zero;
+                IntPtr srcHwnd = IntPtr.Zero;
+                int srcW = w, srcH = h;
+                int srcX = 0, srcY = 0;
+                bool fromWallpaperLayer = false;
+
+                IntPtr workerW = Native.FindWorkerW();
+                if (workerW != IntPtr.Zero)
+                {
+                    Native.RECT rc;
+                    if (Native.GetClientRect(workerW, out rc))
+                    {
+                        int cw = rc.Right - rc.Left, ch = rc.Bottom - rc.Top;
+                        if (cw > 0 && ch > 0)
+                        {
+                            srcDc = Native.GetDC(workerW);
+                            if (srcDc != IntPtr.Zero)
+                            {
+                                srcHwnd = workerW; srcW = cw; srcH = ch; srcX = 0; srcY = 0;
+                                fromWallpaperLayer = true;
+                            }
+                        }
+                    }
+                }
+
+                if (!fromWallpaperLayer)
+                {
+                    srcDc = Native.GetDC(IntPtr.Zero);
+                    srcHwnd = IntPtr.Zero;
+                    srcW = w; srcH = h;
+                    srcX = (int)SystemParameters.VirtualScreenLeft;
+                    srcY = (int)SystemParameters.VirtualScreenTop;
+                }
+
+                using (var bmp = new System.Drawing.Bitmap(srcW, srcH))
                 {
                     using (var g = System.Drawing.Graphics.FromImage(bmp))
                     {
                         IntPtr hdc = g.GetHdc();
                         try
                         {
-                            IntPtr screen = Native.GetDC(IntPtr.Zero);
-                            try { Native.BitBlt(hdc, 0, 0, w, h, screen, x, y, Native.SRCCOPY); }
-                            finally { Native.ReleaseDC(IntPtr.Zero, screen); }
+                            Native.BitBlt(hdc, 0, 0, srcW, srcH, srcDc, srcX, srcY, Native.SRCCOPY);
                         }
-                        finally { g.ReleaseHdc(hdc); }
+                        finally
+                        {
+                            g.ReleaseHdc(hdc);
+                            if (srcDc != IntPtr.Zero) Native.ReleaseDC(srcHwnd, srcDc);
+                        }
                     }
                     var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
                         bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());

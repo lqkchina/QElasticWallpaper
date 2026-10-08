@@ -21,6 +21,7 @@ namespace QElasticWallpaper.Core
         SettingsWindow _settings;
         EventWaitHandle _showEvent;
         System.Windows.Threading.DispatcherTimer _capTimer;
+        bool _wpHooked;
 
         const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string StartupValue = "QElasticWallpaper";
@@ -126,11 +127,20 @@ namespace QElasticWallpaper.Core
                 ShowSettings();
             }
 
-            // 每 2 秒检测一次壁纸是否更换：换壁纸才重新截屏更新素材（不打断正在进行的震荡），
-            // 平时几乎零开销。这样换壁纸后，正在震荡的区域也能很快跟上新壁纸。
+            // 壁纸无缝实时更新：Windows 换壁纸时会广播 UserPreferenceChanged(Wallpaper) 事件，
+            // 收到就立刻刷新素材（瞬间、无延迟、不打断正在进行的震荡）。
+            try
+            {
+                Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnWallpaperEvent;
+                _wpHooked = true;
+            }
+            catch { _wpHooked = false; }
+
+            // 低频兜底：个别第三方壁纸软件换壁纸不广播系统事件，每 5 秒检查一次路径有没有变
+            //（RefreshWallpaper 内部先比对路径+时间戳，没换就什么都不做，几乎零开销）
             _capTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(2)
+                Interval = TimeSpan.FromSeconds(5)
             };
             _capTimer.Tick += (s, e) => _ctrl.RefreshWallpaper();
             _capTimer.Start();
@@ -217,6 +227,11 @@ namespace QElasticWallpaper.Core
 
         public void Dispose()
         {
+            if (_wpHooked)
+            {
+                try { Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnWallpaperEvent; } catch { }
+                _wpHooked = false;
+            }
             if (_capTimer != null) { try { _capTimer.Stop(); } catch { } _capTimer = null; }
             if (_showEvent != null) { try { _showEvent.Dispose(); } catch { } _showEvent = null; }
             _hook?.Dispose();
@@ -225,6 +240,16 @@ namespace QElasticWallpaper.Core
             _tray = null;
             _overlay?.Close();
             _overlay = null;
+        }
+
+        /// <summary>Windows 换壁纸事件：收到立即刷新壁纸素材（回 UI 线程执行，避免并发）。</summary>
+        void OnWallpaperEvent(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+        {
+            if (e.Category != Microsoft.Win32.UserPreferenceCategory.Wallpaper) return;
+            var ctrl = _ctrl;
+            var ui = Application.Current?.Dispatcher;
+            if (ctrl != null && ui != null)
+                ui.BeginInvoke(new Action(() => ctrl.RefreshWallpaper()));
         }
     }
 }
