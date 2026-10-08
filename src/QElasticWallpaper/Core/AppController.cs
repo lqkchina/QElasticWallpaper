@@ -245,7 +245,8 @@ namespace QElasticWallpaper.Core
         /// <summary>Windows 换壁纸事件：收到立即刷新壁纸素材（回 UI 线程执行，避免并发）。</summary>
         void OnWallpaperEvent(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
         {
-            if (e.Category != Microsoft.Win32.UserPreferenceCategory.Wallpaper) return;
+            // 换壁纸会触发 UserPreferenceChanged 且类别为 Desktop（.NET 里没有 Wallpaper 类别）
+            if (e.Category != Microsoft.Win32.UserPreferenceCategory.Desktop) return;
             var ctrl = _ctrl;
             var ui = Application.Current?.Dispatcher;
             if (ctrl != null && ui != null)
